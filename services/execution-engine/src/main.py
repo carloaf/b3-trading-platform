@@ -320,7 +320,31 @@ async def run_backtest(request: BacktestRequest):
     
     result = await engine.run(data)
     
-    # Salvar resultado no banco
+    # Salvar resultado no banco (com tratamento de valores None e limites)
+    # win_rate: DECIMAL(5,4) max = 0.9999, mas pode vir como 100.0 (porcentagem)
+    win_rate = result["win_rate"]
+    if win_rate > 1:  # Se veio como porcentagem, converter
+        win_rate = win_rate / 100.0
+    win_rate = min(0.9999, max(0, win_rate))
+    
+    # max_drawdown: DECIMAL(6,4) max = 99.9999
+    max_drawdown = result["max_drawdown_pct"]
+    if max_drawdown is not None:
+        max_drawdown = min(99.9999, max(-99.9999, max_drawdown / 100.0 if max_drawdown > 1 else max_drawdown))
+    
+    # total_return: DECIMAL(8,4) max = 9999.9999
+    total_return = result["total_return_pct"]
+    if total_return is not None:
+        total_return = min(9999.9999, max(-9999.9999, total_return / 100.0 if abs(total_return) > 100 else total_return))
+    
+    profit_factor = result.get("profit_factor")
+    if profit_factor is not None:
+        profit_factor = min(999.99, max(-999.99, profit_factor))
+    
+    sharpe_ratio = result.get("sharpe_ratio")
+    if sharpe_ratio is not None:
+        sharpe_ratio = min(99.99, max(-99.99, sharpe_ratio))
+    
     async with db_pool.acquire() as conn:
         await conn.execute("""
             INSERT INTO backtest_results 
@@ -335,9 +359,9 @@ async def run_backtest(request: BacktestRequest):
             datetime.strptime(request.end_date, "%Y-%m-%d").date(),
             str(request.params or {}),
             request.initial_capital, result["final_capital"],
-            result["total_return_pct"], result.get("sharpe_ratio"),
-            result["max_drawdown_pct"], result["win_rate"],
-            result.get("profit_factor"), result["total_trades"],
+            total_return, sharpe_ratio,
+            max_drawdown, win_rate,
+            profit_factor, result["total_trades"],
             result["winning_trades"], result["losing_trades"],
             result["avg_win"], result["avg_loss"]
         )
