@@ -1,0 +1,76 @@
+# B3 Trading Platform - .gitignore
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-wheel-metadata/
+*.egg-info/
+.eggs/
+dist/
+build/
+.mypy_cache/
+.pytest_cache/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Frontend build
+frontend/dist/
+frontend/build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Database data (local)
+postgres-data/
+timescaledb-data/
+redis-data/
+
+# Docker
+docker-compose.override.yml
+
+# Test coverage
+coverage/
+htmlcov/
+.coverage
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Results (can be regenerated)
+results/
+backtest_results/
+
+# Secrets
+*.pem
+*.key
+secrets/

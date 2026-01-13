@@ -1,0 +1,216 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # DATABASES
+  # ============================================
+  
+  postgres:
+    image: postgres:15-alpine
+    container_name: b3-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-b3trading_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-b3trading_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-b3trading_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-b3trading_user} -d ${POSTGRES_DB:-b3trading_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - b3-network
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: b3-timescaledb
+    environment:
+      POSTGRES_USER: ${TIMESCALE_USER:-b3trading_ts}
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD:-b3trading_ts_pass}
+      POSTGRES_DB: ${TIMESCALE_DB:-b3trading_market}
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./infrastructure/timescaledb/init-timescale.sql:/docker-entrypoint-initdb.d/01-init.sql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${TIMESCALE_USER:-b3trading_ts}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - b3-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: b3-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - b3-network
+
+  # ============================================
+  # BACKEND SERVICES
+  # ============================================
+
+  data-collector:
+    build:
+      context: ./services/data-collector
+      dockerfile: Dockerfile
+    container_name: b3-data-collector
+    environment:
+      - POSTGRES_HOST=postgres
+      - TIMESCALE_HOST=timescaledb
+      - REDIS_HOST=redis
+      - BRAPI_TOKEN=${BRAPI_TOKEN}
+      - MT5_LOGIN=${MT5_LOGIN}
+      - MT5_PASSWORD=${MT5_PASSWORD}
+      - MT5_SERVER=${MT5_SERVER}
+    volumes:
+      - ./services/data-collector/src:/app/src
+      - ./data:/app/data
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - b3-network
+
+  execution-engine:
+    build:
+      context: ./services/execution-engine
+      dockerfile: Dockerfile
+    container_name: b3-execution-engine
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-b3trading_db}
+      - POSTGRES_USER=${POSTGRES_USER:-b3trading_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-b3trading_pass}
+      - TIMESCALE_HOST=timescaledb
+      - TIMESCALE_PORT=5432
+      - TIMESCALE_DB=${TIMESCALE_DB:-b3trading_market}
+      - TIMESCALE_USER=${TIMESCALE_USER:-b3trading_ts}
+      - TIMESCALE_PASSWORD=${TIMESCALE_PASSWORD:-b3trading_ts_pass}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ENABLE_PAPER_TRADING=${ENABLE_PAPER_TRADING:-true}
+      - INITIAL_CAPITAL=${INITIAL_CAPITAL:-100000}
+    volumes:
+      - ./services/execution-engine/src:/app/src
+      - ./logs:/app/logs
+      - ./data:/app/data
+    ports:
+      - "3008:3008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - b3-network
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: b3-api-gateway
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - EXECUTION_ENGINE_URL=http://execution-engine:3008
+      - DATA_COLLECTOR_URL=http://data-collector:3002
+      - REDIS_HOST=redis
+      - JWT_SECRET=${JWT_SECRET:-your_jwt_secret_here}
+    volumes:
+      - ./services/api-gateway/src:/app/src
+    ports:
+      - "3000:3000"
+    depends_on:
+      - execution-engine
+      - data-collector
+    restart: unless-stopped
+    networks:
+      - b3-network
+
+  # ============================================
+  # FRONTEND
+  # ============================================
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: b3-frontend
+    environment:
+      - REACT_APP_API_URL=http://localhost:3000
+      - REACT_APP_WS_URL=ws://localhost:3000
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+    networks:
+      - b3-network
+
+  # ============================================
+  # MONITORING (Optional)
+  # ============================================
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: b3-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infrastructure/grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+    networks:
+      - b3-network
+
+# ============================================
+# VOLUMES & NETWORKS
+# ============================================
+
+volumes:
+  postgres_data:
+  timescale_data:
+  redis_data:
+  grafana_data:
+
+networks:
+  b3-network:
+    driver: bridge
