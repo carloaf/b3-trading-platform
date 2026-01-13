@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from loguru import logger
 
-from .strategies import StrategyManager
+from .strategies import StrategyManager, get_recommended_strategy, detect_market_regime
 from .backtest import BacktestEngine
 from .paper_trading import PaperTradingManager
 
@@ -269,17 +269,85 @@ async def health_check():
 @app.get("/api/strategies")
 async def list_strategies():
     """Lista estratégias disponíveis."""
-    async with db_pool.acquire() as conn:
-        rows = await conn.fetch("""
-            SELECT name, description, default_params, 
-                   sharpe_ratio, max_drawdown, win_rate, total_trades
-            FROM strategies
-            WHERE is_active = true
-            ORDER BY name
-        """)
+    # Primeiro, listar estratégias do código (local)
+    manager = StrategyManager()
+    local_strategies = manager.list_strategies()
+    
+    # Buscar estatísticas do banco de dados
+    db_stats = {}
+    try:
+        async with db_pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT name, sharpe_ratio, max_drawdown, win_rate, total_trades
+                FROM strategies
+                WHERE is_active = true
+            """)
+            for row in rows:
+                db_stats[row['name']] = dict(row)
+    except Exception as e:
+        logger.warning(f"Erro ao buscar stats do banco: {e}")
+    
+    # Combinar informações
+    strategies = []
+    for strat in local_strategies:
+        stats = db_stats.get(strat['id'], {})
+        strat['db_stats'] = stats
+        strategies.append(strat)
     
     return {
-        "strategies": [dict(row) for row in rows]
+        "strategies": strategies,
+        "total": len(strategies)
+    }
+
+
+@app.get("/api/strategies/{strategy_name}")
+async def get_strategy_info(strategy_name: str):
+    """Retorna informações detalhadas de uma estratégia."""
+    try:
+        info = StrategyManager.get_strategy_description(strategy_name)
+        return info
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/api/market/regime")
+async def get_market_regime(
+    symbol: str = Query(default="WINFUT"),
+    timeframe: str = Query(default="15m")
+):
+    """Detecta o regime de mercado atual (PASSO 8)."""
+    import pandas as pd
+    
+    # Buscar últimos dados
+    async with ts_pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT time, open, high, low, close, volume
+            FROM ohlcv_data
+            WHERE symbol = $1 AND timeframe = $2
+            ORDER BY time DESC
+            LIMIT 100
+        """, symbol, timeframe)
+    
+    if len(rows) < 50:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Dados insuficientes para {symbol}"
+        )
+    
+    # Converter para DataFrame
+    data = [dict(row) for row in reversed(rows)]
+    df = pd.DataFrame(data)
+    
+    # Detectar regime
+    regime = detect_market_regime(df)
+    recommended = get_recommended_strategy(regime)
+    
+    return {
+        "symbol": symbol,
+        "timeframe": timeframe,
+        "regime": regime,
+        "recommended_strategies": recommended,
+        "timestamp": datetime.now()
     }
 
 

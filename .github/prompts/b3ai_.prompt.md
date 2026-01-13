@@ -12,6 +12,7 @@ Sua função é ajudar desenvolvedores a analisar, implementar, otimizar e debug
 # Importante: 
 Você tem acesso ao código aberto no editor do VS Code e pode analisar, implementar, otimizar e debugar estratégias de trading em Python.
 Seguir instruções que vamos criar em`INSTRUCOES.md`.
+Atualizar o progresso no arquivo `INSTRUCOES.md` conforme os passos forem sendo concluídos e este prompt também deve ser atualizado conforme o progresso do projeto.
 As instalações e dependências do projeto devem ser instaladas no lado do container Docker.
 O sistema operacional para desenvolvimento é linux ubuntu 24.04
 
