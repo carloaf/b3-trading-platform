@@ -1,7 +1,7 @@
 # 📋 INSTRUÇÕES DE DESENVOLVIMENTO - B3 Trading Platform
 
 > **Data de Criação:** 12 de Janeiro de 2026  
-> **Última Atualização:** 12 de Janeiro de 2026  
+> **Última Atualização:** 13 de Janeiro de 2026  
 > **Status:** Em Desenvolvimento
 
 ---
@@ -17,9 +17,9 @@
 | **Docker Compose** | `docker-compose.yml` | ✅ Pronto | 217 |
 | **Makefile** | `Makefile` | ✅ Pronto | 182 |
 | **Data Collector** | `services/data-collector/src/main.py` | ✅ Implementado | 419 |
-| **Execution Engine** | `services/execution-engine/src/main.py` | ✅ Implementado | 575 |
-| **Strategies** | `services/execution-engine/src/strategies.py` | ✅ Implementado | 507 |
-| **Backtest Engine** | `services/execution-engine/src/backtest.py` | ✅ Implementado | - |
+| **Execution Engine** | `services/execution-engine/src/main.py` | ✅ Implementado | 876 |
+| **Strategies Module** | `services/execution-engine/src/strategies/` | ✅ Implementado | 2600+ |
+| **Backtest Engine** | `services/execution-engine/src/backtest.py` | ✅ Implementado | 331 |
 | **Paper Trading** | `services/execution-engine/src/paper_trading.py` | ✅ Implementado | - |
 | **API Gateway** | `services/api-gateway/src/index.js` | ✅ Implementado | - |
 | **Frontend (React)** | `frontend/src/App.jsx` | ✅ Implementado | 496 |
@@ -31,6 +31,8 @@
 2. **`mean_reversion`** - Bollinger Bands + RSI
 3. **`breakout`** - Suporte/Resistência + Volume
 4. **`macd_crossover`** - MACD + Signal + Volume
+5. **`rsi_divergence`** - RSI Divergence com 4 padrões (bullish, bearish, hidden_bullish, hidden_bearish)
+6. **`dynamic_position_sizing`** - Kelly Criterion com ajuste ATR
 
 ### 🏗️ Arquitetura de Serviços
 
@@ -108,15 +110,31 @@
 
 ### FASE 3: Estratégias Avançadas
 
-- [ ] **PASSO 8:** Implementar Regime-Adaptive Strategy
-  - Detector de regime de mercado (trending/ranging/volatile)
-  - Ajuste automático de parâmetros por regime
-  - Arquivo: `services/execution-engine/src/strategies.py`
+- [x] **PASSO 8:** Implementar Regime-Adaptive Strategy ✅
+  - ✅ Detector de regime de mercado (trending_up/trending_down/ranging/volatile)
+  - ✅ Ajuste automático de parâmetros por regime
+  - ✅ Endpoint `/api/adaptive-signal/{symbol}` implementado
+  - ✅ Seleção automática de estratégia baseada em ADX/ATR
+  - Arquivo: `services/execution-engine/src/strategies/strategy_manager.py`
 
-- [ ] **PASSO 9:** Implementar Kelly Position Sizing
-  - Cálculo dinâmico de tamanho de posição
-  - Limites de risco por operação (máx 2%)
-  - Integrar com paper trading
+- [x] **PASSO 9:** Implementar Kelly Position Sizing ✅
+  - ✅ Cálculo dinâmico de tamanho de posição com Kelly Criterion
+  - ✅ Limites de risco por operação (máx 2%)
+  - ✅ Integrado com ATR para ajuste de volatilidade
+  - ✅ Estratégia `dynamic_position_sizing` implementada
+  - Arquivo: `services/execution-engine/src/strategies/dynamic_position_sizing.py`
+
+- [x] **PASSO 8.5:** Implementar RSI Divergence Strategy ✅
+  - ✅ 4 padrões de divergência (bullish, bearish, hidden_bullish, hidden_bearish)
+  - ✅ Filtros: ADX > 20, Volume > 1.2x, RSI fora de zona neutra
+  - ✅ Cálculo de força de sinal (5 componentes)
+  - Arquivo: `services/execution-engine/src/strategies/rsi_divergence.py`
+
+- [x] **PASSO 8.6:** Endpoint de Comparação de Estratégias ✅
+  - ✅ Endpoint `/api/backtest/compare` implementado
+  - ✅ Compara múltiplas estratégias em paralelo
+  - ✅ Ranking por Sharpe Ratio
+  - ✅ Retorna métricas completas para cada estratégia
 
 - [ ] **PASSO 10:** Walk-Forward Optimization
   - Dividir dados em janelas de treino/teste

@@ -224,6 +224,8 @@ docker compose down -v
 | `mean_reversion` | Reversão à média | Bollinger Bands, RSI |
 | `breakout` | Rompimentos | Suporte/Resistência, Volume |
 | `macd_crossover` | Cruzamento MACD | MACD, Signal, Volume |
+| `rsi_divergence` | Divergências RSI | RSI, ADX, Volume, MACD (4 padrões) |
+| `dynamic_position_sizing` | Kelly Criterion | EMA 20/50, RSI, ATR, Volatilidade |
 
 ---
 
