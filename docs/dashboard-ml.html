@@ -180,6 +180,12 @@
     <script>
         const API_BASE = 'http://localhost:3008';
 
+        // Helper function to safely format numbers
+        function safeFixed(value, decimals = 2, defaultValue = 'N/A') {
+            if (value == null || isNaN(value)) return defaultValue;
+            return value.toFixed(decimals);
+        }
+
         // Tab switching
         function showTab(tab) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -229,15 +235,15 @@
                         <div class="grid grid-cols-2 gap-4">
                             <div class="bg-gray-700 p-4 rounded">
                                 <div class="text-sm text-gray-400">Train Accuracy</div>
-                                <div class="text-2xl font-bold text-green-400">${(metrics.train_accuracy * 100).toFixed(1)}%</div>
+                                <div class="text-2xl font-bold text-green-400">${safeFixed(metrics.train_accuracy * 100, 1)}%</div>
                             </div>
                             <div class="bg-gray-700 p-4 rounded">
-                                <div class="text-sm text-gray-400">Test Accuracy</div>
-                                <div class="text-2xl font-bold text-blue-400">${(metrics.test_accuracy * 100).toFixed(1)}%</div>
+                                <div class="text-gray-400 mb-2">Test Accuracy</div>
+                                <div class="text-2xl font-bold text-blue-400">${safeFixed(metrics.test_accuracy * 100, 1)}%</div>
                             </div>
                             <div class="bg-gray-700 p-4 rounded">
-                                <div class="text-sm text-gray-400">CV Mean Accuracy</div>
-                                <div class="text-2xl font-bold text-purple-400">${(metrics.cv_mean_accuracy * 100).toFixed(1)}%</div>
+                                <div class="text-gray-400 mb-2">CV Accuracy</div>
+                                <div class="text-2xl font-bold text-purple-400">${safeFixed(metrics.cv_mean_accuracy * 100, 1)}%</div>
                             </div>
                             <div class="bg-gray-700 p-4 rounded">
                                 <div class="text-sm text-gray-400">Samples / Features</div>
@@ -254,7 +260,7 @@
                                             <div class="w-32 bg-gray-600 rounded-full h-2 mr-2">
                                                 <div class="bg-blue-500 h-2 rounded-full" style="width: ${importance * 100}%"></div>
                                             </div>
-                                            <span class="text-sm text-gray-400">${(importance * 100).toFixed(1)}%</span>
+                                            <span class="text-sm text-gray-400">${safeFixed(importance * 100, 1)}%</span>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -305,7 +311,7 @@
                         <div class="grid grid-cols-2 gap-4 mb-4">
                             <div class="bg-gray-700 p-4 rounded">
                                 <div class="text-sm text-gray-400">Best F1 Score</div>
-                                <div class="text-2xl font-bold text-green-400">${(opt.best_score * 100).toFixed(1)}%</div>
+                                <div class="text-2xl font-bold text-green-400">${safeFixed(opt.best_score * 100, 1)}%</div>
                             </div>
                             <div class="bg-gray-700 p-4 rounded">
                                 <div class="text-sm text-gray-400">Best Trial</div>
@@ -328,7 +334,7 @@
                                             <div class="w-32 bg-gray-600 rounded-full h-2 mr-2">
                                                 <div class="bg-green-500 h-2 rounded-full" style="width: ${importance * 100}%"></div>
                                             </div>
-                                            <span class="text-sm text-gray-400">${(importance * 100).toFixed(1)}%</span>
+                                            <span class="text-sm text-gray-400">${safeFixed(importance * 100, 1)}%</span>
                                         </div>
                                     </div>
                                 `).join('')}
@@ -383,7 +389,7 @@
                             </div>
                             <div class="bg-gray-700 p-4 rounded">
                                 <div class="text-sm text-gray-400">Anomaly Rate</div>
-                                <div class="text-2xl font-bold text-yellow-400">${det.anomaly_rate.toFixed(1)}%</div>
+                                <div class="text-2xl font-bold text-yellow-400">${safeFixed(det.anomaly_rate, 1)}%</div>
                             </div>
                         </div>
                         ${pat ? `
@@ -406,9 +412,9 @@
                             <div class="bg-gray-700 p-3 rounded">
                                 <div class="text-sm mb-1">Average Future Returns (Anomalies)</div>
                                 <div class="text-xs text-gray-400">
-                                    1d: ${pat.avg_future_return_1d.toFixed(2)}% |
-                                    3d: ${pat.avg_future_return_3d.toFixed(2)}% |
-                                    5d: ${pat.avg_future_return_5d.toFixed(2)}%
+                                    1d: ${pat.avg_future_return_1d != null ? pat.avg_future_return_1d.toFixed(2) : 'N/A'}% |
+                                    3d: ${pat.avg_future_return_3d != null ? pat.avg_future_return_3d.toFixed(2) : 'N/A'}% |
+                                    5d: ${pat.avg_future_return_5d != null ? pat.avg_future_return_5d.toFixed(2) : 'N/A'}%
                                 </div>
                             </div>
                         </div>
