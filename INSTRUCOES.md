@@ -86,9 +86,7 @@
   curl http://localhost:3008/health
   curl http://localhost:3002/health
   ```
-
----
-
+  
 ### FASE 2: Integração com Dados Reais
 
 - [ ] **PASSO 5:** Obter e configurar BRAPI Token
@@ -108,7 +106,7 @@
   - Implementar conexão MT5 no data-collector
 
 ---
-
+7n
 ### FASE 3: Estratégias Avançadas
 
 - [x] **PASSO 8:** Implementar Regime-Adaptive Strategy ✅
@@ -148,11 +146,8 @@
 
 ---
 
-### FASE 4: Machine Learning
-
-- [ ] **PASSO 11:** Feature Engineering
-  - Criar features técnicas adicionais
-  - Normalização e scaling
+  ?}}}}+
+- [ ] **PASSO 11:** Feature Engineering; pj
   - Feature selection
 
 - [ ] **PASSO 12:** Modelo de Classificação de Sinais

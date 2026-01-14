@@ -374,13 +374,295 @@ curl -X POST http://localhost:3008/api/backtest/run \
 
 ### Walk-Forward Optimization
 
-```bash
-# Otimização Rolling (janelas deslizantes)
-curl -X POST 'http://localhost:3008/api/optimize/walk-forward?symbol=PETR4&start_date=2025-06-01&end_date=2026-01-12&timeframe=1d&strategy=mean_reversion&train_window_days=90&test_window_days=30&step_days=30&optimization_metric=sharpe_ratio&n_trials=50&initial_capital=100000' | python3 -m json.tool
+#### 📊 Exemplo 1: Rolling Walk-Forward (Janelas Deslizantes)
 
-# Otimização Anchored (janela de treino crescente)
-curl -X POST 'http://localhost:3008/api/optimize/walk-forward?symbol=PETR4&start_date=2025-01-13&end_date=2026-01-12&timeframe=1d&strategy=rsi_divergence&train_window_days=180&test_window_days=30&optimization_metric=sharpe_ratio&n_trials=100' | python3 -m json.tool
+**Cenário:** Testar estratégia `mean_reversion` com janelas de 90 dias de treino e 30 dias de teste, avançando 30 dias por vez.
+
+```bash
+curl -X POST 'http://localhost:3008/api/optimize/walk-forward?\
+symbol=PETR4&\
+start_date=2025-06-01&\
+end_date=2026-01-12&\
+timeframe=1d&\
+strategy=mean_reversion&\
+train_window_days=90&\
+test_window_days=30&\
+step_days=30&\
+optimization_metric=sharpe_ratio&\
+n_trials=50&\
+initial_capital=100000' | python3 -m json.tool
 ```
+
+**Comportamento Rolling:**
+```
+Janela 1: Train [Jun-Aug] → Test [Set]
+Janela 2: Train [Jul-Set] → Test [Out]
+Janela 3: Train [Ago-Out] → Test [Nov]
+Janela 4: Train [Set-Nov] → Test [Dez]
+```
+
+**Resultado Esperado:**
+```json
+{
+  "strategy": "mean_reversion",
+  "aggregate_statistics": {
+    "total_windows": 4,
+    "avg_test_sharpe": 1.45,
+    "std_test_sharpe": 0.38,
+    "avg_test_return": 234.56,
+    "positive_windows": 3,
+    "negative_windows": 1
+  },
+  "windows": [
+    {
+      "window_id": 1,
+      "best_params": {
+        "bb_period": 24,
+        "bb_std": 1.75,
+        "rsi_period": 10,
+        "rsi_oversold": 35,
+        "rsi_overbought": 80
+      },
+      "train_metrics": {"sharpe_ratio": 60.14, "total_trades": 2},
+      "test_metrics": {"sharpe_ratio": 1.85, "total_trades": 3}
+    }
+  ]
+}
+```
+
+#### 📈 Exemplo 2: Anchored Walk-Forward (Janela Crescente)
+
+**Cenário:** Estratégia `rsi_divergence` com janela de treino crescente (anchored) e teste fixo de 30 dias.
+
+```bash
+curl -X POST 'http://localhost:3008/api/optimize/walk-forward?\
+symbol=PETR4&\
+start_date=2025-01-13&\
+end_date=2026-01-12&\
+timeframe=1d&\
+strategy=rsi_divergence&\
+train_window_days=180&\
+test_window_days=30&\
+optimization_metric=sharpe_ratio&\
+n_trials=100&\
+initial_capital=100000' | python3 -m json.tool
+```
+
+**Comportamento Anchored (step_days omitido = None):**
+```
+Janela 1: Train [Jan-Jun]        → Test [Jul]
+Janela 2: Train [Jan-Jul]        → Test [Ago]
+Janela 3: Train [Jan-Ago]        → Test [Set]
+Janela 4: Train [Jan-Set]        → Test [Out]
+```
+
+**Vantagem:** Mais dados de treino a cada janela, simulando deployment incremental.
+
+#### 🔬 Exemplo 3: Comparação de Estratégias com Walk-Forward
+
+**Cenário:** Comparar `trend_following` vs `mean_reversion` usando walk-forward.
+
+```bash
+# 1. Walk-Forward para Trend Following
+curl -X POST 'http://localhost:3008/api/optimize/walk-forward?\
+symbol=VALE3&\
+start_date=2025-03-01&\
+end_date=2026-01-12&\
+timeframe=1d&\
+strategy=trend_following&\
+train_window_days=120&\
+test_window_days=30&\
+step_days=30&\
+optimization_metric=sharpe_ratio&\
+n_trials=75&\
+initial_capital=100000' > trend_wf.json
+
+# 2. Walk-Forward para Mean Reversion
+curl -X POST 'http://localhost:3008/api/optimize/walk-forward?\
+symbol=VALE3&\
+start_date=2025-03-01&\
+end_date=2026-01-12&\
+timeframe=1d&\
+strategy=mean_reversion&\
+train_window_days=120&\
+test_window_days=30&\
+step_days=30&\
+optimization_metric=sharpe_ratio&\
+n_trials=75&\
+initial_capital=100000' > mean_wf.json
+
+# 3. Comparar resultados
+python3 << 'EOF'
+import json
+
+with open('trend_wf.json') as f1, open('mean_wf.json') as f2:
+    trend = json.load(f1)
+    mean = json.load(f2)
+    
+print("=" * 60)
+print("COMPARAÇÃO WALK-FORWARD: TREND vs MEAN REVERSION")
+print("=" * 60)
+print(f"Trend Following:")
+print(f"  Avg Test Sharpe: {trend['aggregate_statistics']['avg_test_sharpe']:.2f}")
+print(f"  Positive Windows: {trend['aggregate_statistics']['positive_windows']}")
+print(f"\nMean Reversion:")
+print(f"  Avg Test Sharpe: {mean['aggregate_statistics']['avg_test_sharpe']:.2f}")
+print(f"  Positive Windows: {mean['aggregate_statistics']['positive_windows']}")
+EOF
+```
+
+#### ⚡ Exemplo 4: Walk-Forward Rápido (Desenvolvimento)
+
+**Cenário:** Teste rápido com poucos trials para validar implementação.
+
+```bash
+curl -X POST 'http://localhost:3008/api/optimize/walk-forward?\
+symbol=ITUB4&\
+start_date=2025-09-01&\
+end_date=2026-01-12&\
+timeframe=1d&\
+strategy=breakout&\
+train_window_days=60&\
+test_window_days=20&\
+step_days=20&\
+optimization_metric=total_return&\
+n_trials=10&\
+initial_capital=50000' | python3 -m json.tool
+```
+
+**Parâmetros Leves:**
+- `n_trials=10` (apenas 10 otimizações por janela)
+- `train_window_days=60` (janela menor)
+- Execução: ~5-10 segundos
+
+#### 🎯 Exemplo 5: Walk-Forward com Profit Factor
+
+**Cenário:** Otimizar para `profit_factor` ao invés de Sharpe Ratio.
+
+```bash
+curl -X POST 'http://localhost:3008/api/optimize/walk-forward?\
+symbol=PETR4&\
+start_date=2025-04-01&\
+end_date=2026-01-12&\
+timeframe=1d&\
+strategy=macd_crossover&\
+train_window_days=90&\
+test_window_days=30&\
+step_days=30&\
+optimization_metric=profit_factor&\
+n_trials=60&\
+initial_capital=100000' | python3 -m json.tool
+```
+
+**Métricas de Otimização Disponíveis:**
+- `sharpe_ratio`: Retorno ajustado ao risco (padrão)
+- `total_return`: Retorno absoluto em R$
+- `profit_factor`: Razão ganhos/perdas
+
+#### 📝 Exemplo 6: Script Python Completo
+
+```python
+#!/usr/bin/env python3
+"""
+Script de Walk-Forward Optimization Automatizado
+"""
+import requests
+import json
+from datetime import datetime
+
+# Configuração
+API_URL = "http://localhost:3008"
+STRATEGIES = ["mean_reversion", "trend_following", "rsi_divergence"]
+SYMBOL = "PETR4"
+START_DATE = "2025-01-13"
+END_DATE = "2026-01-12"
+
+def run_walk_forward(strategy, step_days=30):
+    """Executa walk-forward para uma estratégia."""
+    params = {
+        "symbol": SYMBOL,
+        "start_date": START_DATE,
+        "end_date": END_DATE,
+        "timeframe": "1d",
+        "strategy": strategy,
+        "train_window_days": 120,
+        "test_window_days": 30,
+        "step_days": step_days,
+        "optimization_metric": "sharpe_ratio",
+        "n_trials": 50,
+        "initial_capital": 100000
+    }
+    
+    print(f"\n{'='*60}")
+    print(f"🔄 Otimizando {strategy}...")
+    print(f"{'='*60}")
+    
+    response = requests.post(
+        f"{API_URL}/api/optimize/walk-forward",
+        params=params,
+        timeout=300
+    )
+    
+    if response.status_code == 200:
+        result = response.json()
+        stats = result["aggregate_statistics"]
+        
+        print(f"✅ Concluído!")
+        print(f"   Total Windows: {stats['total_windows']}")
+        print(f"   Avg Test Sharpe: {stats['avg_test_sharpe']:.2f} ± {stats['std_test_sharpe']:.2f}")
+        print(f"   Avg Test Return: R$ {stats['avg_test_return']:.2f}")
+        print(f"   Win Rate: {stats['positive_windows']}/{stats['total_windows']}")
+        
+        return result
+    else:
+        print(f"❌ Erro: {response.status_code}")
+        print(response.text)
+        return None
+
+def main():
+    """Executa walk-forward para todas as estratégias."""
+    results = {}
+    
+    for strategy in STRATEGIES:
+        result = run_walk_forward(strategy)
+        if result:
+            results[strategy] = result
+    
+    # Ranking
+    print(f"\n{'='*60}")
+    print("🏆 RANKING FINAL")
+    print(f"{'='*60}")
+    
+    ranking = sorted(
+        results.items(),
+        key=lambda x: x[1]["aggregate_statistics"]["avg_test_sharpe"],
+        reverse=True
+    )
+    
+    for i, (strategy, result) in enumerate(ranking, 1):
+        stats = result["aggregate_statistics"]
+        print(f"{i}. {strategy:20} → Sharpe: {stats['avg_test_sharpe']:.2f}")
+    
+    # Salvar resultados
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"walk_forward_results_{timestamp}.json"
+    
+    with open(filename, 'w') as f:
+        json.dump(results, f, indent=2)
+    
+    print(f"\n💾 Resultados salvos em: {filename}")
+
+if __name__ == "__main__":
+    main()
+```
+
+**Uso:**
+```bash
+chmod +x walk_forward_test.py
+python3 walk_forward_test.py
+```
+
+---
 
 ---
 

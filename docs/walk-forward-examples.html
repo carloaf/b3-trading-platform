@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Walk-Forward Optimization - Exemplos Práticos</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            padding: 15px 30px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-size: 1em;
+            color: #666;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .nav-tab:hover {
+            color: #667eea;
+            background: #f5f5f5;
+        }
+
+        .nav-tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            font-weight: bold;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .example-card {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 25px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .example-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .example-card h4 {
+            color: #555;
+            margin: 20px 0 10px 0;
+            font-size: 1.2em;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.5;
+            margin: 15px 0;
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.3s;
+        }
+
+        .copy-btn:hover {
+            background: #764ba2;
+            transform: scale(1.05);
+        }
+
+        .copy-btn.copied {
+            background: #4caf50;
+        }
+
+        .json-preview {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            line-height: 1.5;
+            margin: 15px 0;
+        }
+
+        .json-key {
+            color: #9cdcfe;
+        }
+
+        .json-string {
+            color: #ce9178;
+        }
+
+        .json-number {
+            color: #b5cea8;
+        }
+
+        .json-boolean {
+            color: #569cd6;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .warning-box {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .success-box {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .timeline {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            margin: 20px 0;
+        }
+
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .timeline-badge {
+            background: #667eea;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .comparison-table th {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+
+        .comparison-table tr:hover {
+            background: #f5f5f5;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin: 5px 5px 5px 0;
+        }
+
+        .badge-rolling {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .badge-anchored {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .badge-fast {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .metric {
+            display: inline-block;
+            margin: 10px 20px 10px 0;
+        }
+
+        .metric-label {
+            color: #666;
+            font-size: 0.9em;
+            display: block;
+        }
+
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .footer {
+            background: #f5f5f5;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .nav-tab {
+                padding: 10px 15px;
+                font-size: 0.9em;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .code-block, .json-preview {
+                font-size: 0.75em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔬 Walk-Forward Optimization</h1>
+            <p>Exemplos Práticos e Interativos - B3 Trading Platform</p>
+        </div>
+
+        <div class="content">
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="showTab('intro')">📚 Introdução</button>
+                <button class="nav-tab" onclick="showTab('rolling')">🔄 Rolling</button>
+                <button class="nav-tab" onclick="showTab('anchored')">📈 Anchored</button>
+                <button class="nav-tab" onclick="showTab('comparison')">⚖️ Comparação</button>
+                <button class="nav-tab" onclick="showTab('fast')">⚡ Rápido</button>
+                <button class="nav-tab" onclick="showTab('python')">🐍 Python Script</button>
+            </div>
+
+            <!-- Introdução -->
+            <div id="intro" class="tab-content active">
+                <div class="example-card">
+                    <h3>O que é Walk-Forward Optimization?</h3>
+                    <p>Walk-Forward Optimization é uma técnica avançada de validação de estratégias de trading que divide dados históricos em múltiplas janelas de treino e teste, otimizando parâmetros em cada janela de treino e validando em dados out-of-sample.</p>
+                    
+                    <div class="info-box">
+                        <strong>📊 Vantagens:</strong>
+                        <ul>
+                            <li>Evita overfitting (ajuste excessivo aos dados)</li>
+                            <li>Valida robustez da estratégia em diferentes períodos</li>
+                            <li>Simula deployment incremental em produção</li>
+                            <li>Fornece estatísticas agregadas confiáveis</li>
+                        </ul>
+                    </div>
+
+                    <h4>Tipos de Walk-Forward:</h4>
+                    <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Descrição</th>
+                                <th>Uso Ideal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="badge badge-rolling">Rolling</span></td>
+                                <td>Janelas de treino e teste deslizam juntas</td>
+                                <td>Mercados dinâmicos, adaptação rápida</td>
+                            </tr>
+                            <tr>
+                                <td><span class="badge badge-anchored">Anchored</span></td>
+                                <td>Janela de treino cresce, teste fixo</td>
+                                <td>Acumular mais dados, deployment incremental</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h4>Métricas de Otimização:</h4>
+                    <div style="display: flex; flex-wrap: wrap; margin: 20px 0;">
+                        <div class="metric">
+                            <span class="metric-label">Sharpe Ratio</span>
+                            <span class="metric-value">📊</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Total Return</span>
+                            <span class="metric-value">💰</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Profit Factor</span>
+                            <span class="metric-value">📈</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rolling Walk-Forward -->
+            <div id="rolling" class="tab-content">
+                <div class="example-card">
+                    <h3>📊 Exemplo 1: Rolling Walk-Forward</h3>
+                    <p><strong>Cenário:</strong> Testar estratégia <code>mean_reversion</code> com janelas de 90 dias de treino e 30 dias de teste, avançando 30 dias por vez.</p>
+                    
+                    <div class="badge badge-rolling">Rolling</div>
+                    <div class="badge badge-fast">50 trials/janela</div>
+
+                    <h4>Comando cURL:</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this, 'rolling-cmd')">Copiar</button>
+                        <pre id="rolling-cmd">curl -X POST 'http://localhost:3008/api/optimize/walk-forward?\
+symbol=PETR4&\
+start_date=2025-06-01&\
+end_date=2026-01-12&\
+timeframe=1d&\
+strategy=mean_reversion&\
+train_window_days=90&\
+test_window_days=30&\
+step_days=30&\
+optimization_metric=sharpe_ratio&\
+n_trials=50&\
+initial_capital=100000' | python3 -m json.tool</pre>
+                    </div>
+
+                    <h4>Comportamento das Janelas:</h4>
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-badge">1</div>
+                            <div>
+                                <strong>Janela 1:</strong> Train [Jun-Ago] → Test [Set]
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-badge">2</div>
+                            <div>
+                                <strong>Janela 2:</strong> Train [Jul-Set] → Test [Out]
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-badge">3</div>
+                            <div>
+                                <strong>Janela 3:</strong> Train [Ago-Out] → Test [Nov]
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-badge">4</div>
+                            <div>
+                                <strong>Janela 4:</strong> Train [Set-Nov] → Test [Dez]
+                            </div>
+                        </div>
+                    </div>
+
+                    <h4>Resposta Esperada:</h4>
+                    <div class="json-preview">
+{
+  <span class="json-key">"strategy"</span>: <span class="json-string">"mean_reversion"</span>,
+  <span class="json-key">"aggregate_statistics"</span>: {
+    <span class="json-key">"total_windows"</span>: <span class="json-number">4</span>,
+    <span class="json-key">"avg_test_sharpe"</span>: <span class="json-number">1.45</span>,
+    <span class="json-key">"std_test_sharpe"</span>: <span class="json-number">0.38</span>,
+    <span class="json-key">"avg_test_return"</span>: <span class="json-number">234.56</span>,
+    <span class="json-key">"positive_windows"</span>: <span class="json-number">3</span>,
+    <span class="json-key">"negative_windows"</span>: <span class="json-number">1</span>
+  }
+}</div>
+
+                    <div class="success-box">
+                        <strong>✅ Vantagem Rolling:</strong> Janelas menores capturam mudanças recentes no mercado, ideal para adaptação rápida.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Anchored Walk-Forward -->
+            <div id="anchored" class="tab-content">
+                <div class="example-card">
+                    <h3>📈 Exemplo 2: Anchored Walk-Forward</h3>
+                    <p><strong>Cenário:</strong> Estratégia <code>rsi_divergence</code> com janela de treino crescente (anchored) e teste fixo de 30 dias.</p>
+                    
+                    <div class="badge badge-anchored">Anchored</div>
+                    <div class="badge badge-fast">100 trials/janela</div>
+
+                    <h4>Comando cURL:</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this, 'anchored-cmd')">Copiar</button>
+                        <pre id="anchored-cmd">curl -X POST 'http://localhost:3008/api/optimize/walk-forward?\
+symbol=PETR4&\
+start_date=2025-01-13&\
+end_date=2026-01-12&\
+timeframe=1d&\
+strategy=rsi_divergence&\
+train_window_days=180&\
+test_window_days=30&\
+optimization_metric=sharpe_ratio&\
+n_trials=100&\
+initial_capital=100000' | python3 -m json.tool</pre>
+                    </div>
+
+                    <div class="info-box">
+                        <strong>💡 Nota:</strong> Quando <code>step_days</code> é omitido (ou None), o comportamento padrão é Anchored.
+                    </div>
+
+                    <h4>Comportamento Anchored:</h4>
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-badge">1</div>
+                            <div>
+                                <strong>Janela 1:</strong> Train [Jan-Jun] → Test [Jul]
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-badge">2</div>
+                            <div>
+                                <strong>Janela 2:</strong> Train [Jan-Jul] → Test [Ago]
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-badge">3</div>
+                            <div>
+                                <strong>Janela 3:</strong> Train [Jan-Ago] → Test [Set]
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-badge">4</div>
+                            <div>
+                                <strong>Janela 4:</strong> Train [Jan-Set] → Test [Out]
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="success-box">
+                        <strong>✅ Vantagem Anchored:</strong> Mais dados de treino a cada janela, simula deployment incremental real.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comparação -->
+            <div id="comparison" class="tab-content">
+                <div class="example-card">
+                    <h3>⚖️ Exemplo 3: Comparação de Estratégias</h3>
+                    <p><strong>Cenário:</strong> Comparar <code>trend_following</code> vs <code>mean_reversion</code> usando walk-forward.</p>
+
+                    <h4>1. Walk-Forward para Trend Following:</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this, 'comp-cmd1')">Copiar</button>
+                        <pre id="comp-cmd1">curl -X POST 'http://localhost:3008/api/optimize/walk-forward?\
+symbol=VALE3&\
+start_date=2025-03-01&\
+end_date=2026-01-12&\
+timeframe=1d&\
+strategy=trend_following&\
+train_window_days=120&\
+test_window_days=30&\
+step_days=30&\
+optimization_metric=sharpe_ratio&\
+n_trials=75&\
+initial_capital=100000' > trend_wf.json</pre>
+                    </div>
+
+                    <h4>2. Walk-Forward para Mean Reversion:</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this, 'comp-cmd2')">Copiar</button>
+                        <pre id="comp-cmd2">curl -X POST 'http://localhost:3008/api/optimize/walk-forward?\
+symbol=VALE3&\
+start_date=2025-03-01&\
+end_date=2026-01-12&\
+timeframe=1d&\
+strategy=mean_reversion&\
+train_window_days=120&\
+test_window_days=30&\
+step_days=30&\
+optimization_metric=sharpe_ratio&\
+n_trials=75&\
+initial_capital=100000' > mean_wf.json</pre>
+                    </div>
+
+                    <h4>3. Comparar Resultados:</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this, 'comp-cmd3')">Copiar</button>
+                        <pre id="comp-cmd3">python3 << 'EOF'
+import json
+
+with open('trend_wf.json') as f1, open('mean_wf.json') as f2:
+    trend = json.load(f1)
+    mean = json.load(f2)
+    
+print("=" * 60)
+print("COMPARAÇÃO WALK-FORWARD: TREND vs MEAN REVERSION")
+print("=" * 60)
+print(f"Trend Following:")
+print(f"  Avg Test Sharpe: {trend['aggregate_statistics']['avg_test_sharpe']:.2f}")
+print(f"  Positive Windows: {trend['aggregate_statistics']['positive_windows']}")
+print(f"\nMean Reversion:")
+print(f"  Avg Test Sharpe: {mean['aggregate_statistics']['avg_test_sharpe']:.2f}")
+print(f"  Positive Windows: {mean['aggregate_statistics']['positive_windows']}")
+EOF</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rápido -->
+            <div id="fast" class="tab-content">
+                <div class="example-card">
+                    <h3>⚡ Exemplo 4: Walk-Forward Rápido</h3>
+                    <p><strong>Cenário:</strong> Teste rápido com poucos trials para validar implementação.</p>
+                    
+                    <div class="badge badge-fast">10 trials apenas</div>
+                    <div class="badge badge-rolling">60 dias treino</div>
+
+                    <div class="warning-box">
+                        <strong>⚠️ Uso em Desenvolvimento:</strong> Configuração leve para testes rápidos. Para produção, use no mínimo 50 trials.
+                    </div>
+
+                    <h4>Comando cURL:</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this, 'fast-cmd')">Copiar</button>
+                        <pre id="fast-cmd">curl -X POST 'http://localhost:3008/api/optimize/walk-forward?\
+symbol=ITUB4&\
+start_date=2025-09-01&\
+end_date=2026-01-12&\
+timeframe=1d&\
+strategy=breakout&\
+train_window_days=60&\
+test_window_days=20&\
+step_days=20&\
+optimization_metric=total_return&\
+n_trials=10&\
+initial_capital=50000' | python3 -m json.tool</pre>
+                    </div>
+
+                    <h4>Parâmetros Leves:</h4>
+                    <ul>
+                        <li><strong>n_trials=10</strong> - Apenas 10 otimizações por janela</li>
+                        <li><strong>train_window_days=60</strong> - Janela menor</li>
+                        <li><strong>test_window_days=20</strong> - Teste menor</li>
+                        <li><strong>initial_capital=50000</strong> - Capital reduzido</li>
+                    </ul>
+
+                    <div class="success-box">
+                        <strong>⏱️ Tempo de Execução:</strong> ~5-10 segundos
+                    </div>
+
+                    <h4>Outras Métricas de Otimização:</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this, 'profit-cmd')">Copiar</button>
+                        <pre id="profit-cmd"># Otimizar para Profit Factor
+curl -X POST 'http://localhost:3008/api/optimize/walk-forward?\
+symbol=PETR4&\
+strategy=macd_crossover&\
+optimization_metric=profit_factor&\
+...' | python3 -m json.tool</pre>
+                    </div>
+
+                    <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Métrica</th>
+                                <th>Descrição</th>
+                                <th>Uso</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>sharpe_ratio</code></td>
+                                <td>Retorno ajustado ao risco</td>
+                                <td>⭐ Padrão recomendado</td>
+                            </tr>
+                            <tr>
+                                <td><code>total_return</code></td>
+                                <td>Retorno absoluto em R$</td>
+                                <td>Maximizar lucro bruto</td>
+                            </tr>
+                            <tr>
+                                <td><code>profit_factor</code></td>
+                                <td>Razão ganhos/perdas</td>
+                                <td>Consistência dos trades</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Python Script -->
+            <div id="python" class="tab-content">
+                <div class="example-card">
+                    <h3>🐍 Exemplo 6: Script Python Completo</h3>
+                    <p><strong>Cenário:</strong> Automação completa de walk-forward para múltiplas estratégias com ranking final.</p>
+
+                    <h4>Script Completo:</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this, 'python-script')">Copiar</button>
+                        <pre id="python-script">#!/usr/bin/env python3
+"""
+Script de Walk-Forward Optimization Automatizado
+B3 Trading Platform
+"""
+import requests
+import json
+from datetime import datetime
+
+# Configuração
+API_URL = "http://localhost:3008"
+STRATEGIES = ["mean_reversion", "trend_following", "rsi_divergence"]
+SYMBOL = "PETR4"
+START_DATE = "2025-01-13"
+END_DATE = "2026-01-12"
+
+def run_walk_forward(strategy, step_days=30):
+    """Executa walk-forward para uma estratégia."""
+    params = {
+        "symbol": SYMBOL,
+        "start_date": START_DATE,
+        "end_date": END_DATE,
+        "timeframe": "1d",
+        "strategy": strategy,
+        "train_window_days": 120,
+        "test_window_days": 30,
+        "step_days": step_days,
+        "optimization_metric": "sharpe_ratio",
+        "n_trials": 50,
+        "initial_capital": 100000
+    }
+    
+    print(f"\n{'='*60}")
+    print(f"🔄 Otimizando {strategy}...")
+    print(f"{'='*60}")
+    
+    response = requests.post(
+        f"{API_URL}/api/optimize/walk-forward",
+        params=params,
+        timeout=300
+    )
+    
+    if response.status_code == 200:
+        result = response.json()
+        stats = result["aggregate_statistics"]
+        
+        print(f"✅ Concluído!")
+        print(f"   Total Windows: {stats['total_windows']}")
+        print(f"   Avg Test Sharpe: {stats['avg_test_sharpe']:.2f} ± {stats['std_test_sharpe']:.2f}")
+        print(f"   Avg Test Return: R$ {stats['avg_test_return']:.2f}")
+        print(f"   Win Rate: {stats['positive_windows']}/{stats['total_windows']}")
+        
+        return result
+    else:
+        print(f"❌ Erro: {response.status_code}")
+        print(response.text)
+        return None
+
+def main():
+    """Executa walk-forward para todas as estratégias."""
+    results = {}
+    
+    for strategy in STRATEGIES:
+        result = run_walk_forward(strategy)
+        if result:
+            results[strategy] = result
+    
+    # Ranking
+    print(f"\n{'='*60}")
+    print("🏆 RANKING FINAL")
+    print(f"{'='*60}")
+    
+    ranking = sorted(
+        results.items(),
+        key=lambda x: x[1]["aggregate_statistics"]["avg_test_sharpe"],
+        reverse=True
+    )
+    
+    for i, (strategy, result) in enumerate(ranking, 1):
+        stats = result["aggregate_statistics"]
+        print(f"{i}. {strategy:20} → Sharpe: {stats['avg_test_sharpe']:.2f}")
+    
+    # Salvar resultados
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"walk_forward_results_{timestamp}.json"
+    
+    with open(filename, 'w') as f:
+        json.dump(results, f, indent=2)
+    
+    print(f"\n💾 Resultados salvos em: {filename}")
+
+if __name__ == "__main__":
+    main()</pre>
+                    </div>
+
+                    <h4>Como Usar:</h4>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this, 'python-usage')">Copiar</button>
+                        <pre id="python-usage"># 1. Salvar o script
+cat > walk_forward_test.py << 'EOF'
+# (cole o código acima)
+EOF
+
+# 2. Dar permissão de execução
+chmod +x walk_forward_test.py
+
+# 3. Executar
+python3 walk_forward_test.py
+
+# 4. Verificar resultados
+cat walk_forward_results_*.json | python3 -m json.tool</pre>
+                    </div>
+
+                    <div class="success-box">
+                        <strong>✅ Resultado:</strong> Script executa walk-forward para todas as estratégias, gera ranking e salva resultados em JSON.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>
+                <strong>B3 Trading Platform</strong> - Sistema Institucional de Trading<br>
+                <a href="https://github.com/carloaf/b3-trading-platform" target="_blank">GitHub</a> | 
+                <a href="../API_ENDPOINTS.md" target="_blank">Documentação API</a> | 
+                <a href="../INSTRUCOES.md" target="_blank">Instruções</a>
+            </p>
+            <p style="margin-top: 15px; color: #666; font-size: 0.9em;">
+                Última atualização: 13 de Janeiro de 2026
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabId) {
+            // Esconder todos os conteúdos
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Desativar todos os botões
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Ativar tab selecionada
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function copyCode(button, codeId) {
+            const code = document.getElementById(codeId).textContent;
+            
+            navigator.clipboard.writeText(code).then(() => {
+                const originalText = button.textContent;
+                button.textContent = '✓ Copiado!';
+                button.classList.add('copied');
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Erro ao copiar:', err);
+                alert('Erro ao copiar código');
+            });
+        }
+
+        // Adicionar syntax highlighting aos blocos de código
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Walk-Forward Examples loaded successfully!');
+        });
+    </script>
+</body>
+</html>
