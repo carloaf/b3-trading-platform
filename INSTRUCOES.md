@@ -17,9 +17,10 @@
 | **Docker Compose** | `docker-compose.yml` | ✅ Pronto | 217 |
 | **Makefile** | `Makefile` | ✅ Pronto | 182 |
 | **Data Collector** | `services/data-collector/src/main.py` | ✅ Implementado | 419 |
-| **Execution Engine** | `services/execution-engine/src/main.py` | ✅ Implementado | 876 |
+| **Execution Engine** | `services/execution-engine/src/main.py` | ✅ Implementado | 1030 |
 | **Strategies Module** | `services/execution-engine/src/strategies/` | ✅ Implementado | 2600+ |
 | **Backtest Engine** | `services/execution-engine/src/backtest.py` | ✅ Implementado | 331 |
+| **Walk-Forward Optimizer** | `services/execution-engine/src/walk_forward_optimizer.py` | ✅ Implementado | 435 |
 | **Paper Trading** | `services/execution-engine/src/paper_trading.py` | ✅ Implementado | - |
 | **API Gateway** | `services/api-gateway/src/index.js` | ✅ Implementado | - |
 | **Frontend (React)** | `frontend/src/App.jsx` | ✅ Implementado | 496 |
@@ -136,10 +137,14 @@
   - ✅ Ranking por Sharpe Ratio
   - ✅ Retorna métricas completas para cada estratégia
 
-- [ ] **PASSO 10:** Walk-Forward Optimization
-  - Dividir dados em janelas de treino/teste
-  - Otimizar parâmetros por janela
-  - Validar out-of-sample performance
+- [x] **PASSO 10:** Walk-Forward Optimization ✅
+  - ✅ Divide dados em janelas de treino/teste
+  - ✅ Otimiza parâmetros usando Optuna (TPE Sampler)
+  - ✅ Valida em dados out-of-sample
+  - ✅ Suporta Anchored e Rolling Walk-Forward
+  - ✅ Endpoint `/api/optimize/walk-forward` implementado
+  - ✅ Execução assíncrona com ThreadPoolExecutor
+  - Arquivo: `services/execution-engine/src/walk_forward_optimizer.py`
 
 ---
 

@@ -19,6 +19,7 @@ from loguru import logger
 from .strategies import StrategyManager, get_recommended_strategy, detect_market_regime
 from .backtest import BacktestEngine
 from .paper_trading import PaperTradingManager
+from .walk_forward_optimizer import WalkForwardOptimizer
 
 
 # ============================================
@@ -722,6 +723,158 @@ async def compare_strategies(
         raise
     except Exception as e:
         logger.error(f"❌ Erro em compare_strategies: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/optimize/walk-forward")
+async def walk_forward_optimization(
+    symbol: str = Query(..., description="Símbolo do ativo"),
+    start_date: str = Query(..., description="Data inicial (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="Data final (YYYY-MM-DD)"),
+    timeframe: str = Query("1d", description="Timeframe"),
+    strategy: str = Query(..., description="Estratégia a otimizar"),
+    train_window_days: int = Query(180, description="Tamanho da janela de treino em dias"),
+    test_window_days: int = Query(30, description="Tamanho da janela de teste em dias"),
+    step_days: Optional[int] = Query(None, description="Passo para avançar janela (None = anchored)"),
+    optimization_metric: str = Query("sharpe_ratio", description="Métrica para otimizar"),
+    n_trials: int = Query(50, description="Número de trials Optuna por janela"),
+    initial_capital: float = Query(100000, description="Capital inicial")
+):
+    """
+    Walk-Forward Optimization - PASSO 10
+    
+    Divide dados históricos em janelas de treino/teste, otimiza parâmetros
+    em cada janela de treino e valida em dados out-of-sample.
+    
+    Tipos de Walk-Forward:
+    - Anchored (step_days=None): janela de treino cresce, teste fixo
+    - Rolling (step_days especificado): ambas as janelas deslizam
+    
+    Parâmetros:
+    -----------
+    symbol : str
+        Símbolo do ativo (ex: PETR4)
+    start_date : str
+        Data inicial no formato YYYY-MM-DD
+    end_date : str
+        Data final no formato YYYY-MM-DD
+    timeframe : str
+        Intervalo de tempo (1m, 5m, 15m, 1h, 1d)
+    strategy : str
+        Nome da estratégia a otimizar
+    train_window_days : int
+        Tamanho da janela de treino em dias (padrão: 180)
+    test_window_days : int
+        Tamanho da janela de teste em dias (padrão: 30)
+    step_days : Optional[int]
+        Passo para avançar a janela. None = anchored, valor = rolling
+    optimization_metric : str
+        Métrica para otimizar: sharpe_ratio, total_return, profit_factor
+    n_trials : int
+        Número de trials do Optuna por janela (padrão: 50)
+    initial_capital : float
+        Capital inicial para backtests
+    
+    Retorna:
+    --------
+    {
+        "strategy": "mean_reversion",
+        "configuration": {...},
+        "aggregate_statistics": {
+            "total_windows": 5,
+            "avg_test_sharpe": 1.85,
+            "std_test_sharpe": 0.42,
+            "positive_windows": 4,
+            ...
+        },
+        "windows": [
+            {
+                "window_id": 1,
+                "period": {...},
+                "best_params": {...},
+                "train_metrics": {...},
+                "test_metrics": {...}
+            },
+            ...
+        ]
+    }
+    """
+    try:
+        # Validar estratégia
+        strategy_manager = StrategyManager()
+        available = [s['name'] for s in strategy_manager.list_strategies()]
+        
+        if strategy not in available:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Estratégia '{strategy}' inválida. Disponíveis: {available}"
+            )
+        
+        # Buscar dados históricos
+        async with ts_pool.acquire() as conn:
+            query = """
+                SELECT time, open, high, low, close, volume
+                FROM ohlcv_data
+                WHERE symbol = $1 
+                AND timeframe = $2
+                AND time BETWEEN $3 AND $4
+                ORDER BY time ASC
+            """
+            rows = await conn.fetch(
+                query, 
+                symbol, 
+                timeframe,
+                datetime.fromisoformat(start_date),
+                datetime.fromisoformat(end_date)
+            )
+        
+        if not rows:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Nenhum dado encontrado para {symbol} no período especificado"
+            )
+        
+        import pandas as pd
+        df = pd.DataFrame([dict(r) for r in rows])
+        
+        # Converter Decimal para float
+        for col in ['open', 'high', 'low', 'close', 'volume']:
+            if col in df.columns:
+                df[col] = df[col].astype(float)
+        
+        # Verificar quantidade mínima de dados
+        min_required = train_window_days + test_window_days
+        if len(df) < min_required:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Dados insuficientes. Necessário: {min_required} candles, Disponível: {len(df)}"
+            )
+        
+        logger.info(f"🚀 Iniciando Walk-Forward: {strategy} em {symbol}")
+        logger.info(f"📊 Total de dados: {len(df)} candles")
+        
+        # Criar otimizador
+        optimizer = WalkForwardOptimizer(
+            strategy_name=strategy,
+            train_window_days=train_window_days,
+            test_window_days=test_window_days,
+            step_days=step_days,
+            optimization_metric=optimization_metric,
+            n_trials=n_trials,
+            initial_capital=initial_capital
+        )
+        
+        # Executar otimização
+        result = await optimizer.run(df)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erro em walk_forward_optimization: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 
