@@ -8,10 +8,12 @@ Módulo de ML para Feature Engineering, Signal Classification e Anomaly Detectio
 from .feature_engineer import FeatureEngineer
 from .signal_classifier import SignalClassifier, MLSignalFilter
 from .ml_enhanced_strategy import MLEnhancedStrategy
+from .anomaly_detector import AnomalyDetector
 
 __all__ = [
     "FeatureEngineer",
     "SignalClassifier",
     "MLSignalFilter",
-    "MLEnhancedStrategy"
+    "MLEnhancedStrategy",
+    "AnomalyDetector"
 ]

@@ -23,6 +23,7 @@ from .walk_forward_optimizer import WalkForwardOptimizer
 from .ml.feature_engineer import FeatureEngineer
 from .ml.signal_classifier import SignalClassifier
 from .ml.ml_enhanced_strategy import MLEnhancedStrategy
+from .ml.anomaly_detector import AnomalyDetector
 
 
 # ============================================
@@ -1399,6 +1400,137 @@ async def predict_signals(request: PredictSignalsRequest):
     except Exception as e:
         logger.error(f"Erro ao predizer sinais: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro ao predizer: {str(e)}")
+
+
+# ============================================
+# ANOMALY DETECTION ENDPOINT
+# ============================================
+
+class AnomalyDetectionRequest(BaseModel):
+    """Request para detecção de anomalias."""
+    symbol: str = Field(..., description="Símbolo do ativo")
+    start_date: str = Field(..., description="Data inicial")
+    end_date: str = Field(..., description="Data final")
+    timeframe: str = Field(default="1d", description="Timeframe")
+    contamination: float = Field(default=0.1, description="Proporção esperada de anomalias (0.0-0.5)")
+    n_estimators: int = Field(default=100, description="Número de árvores")
+    regime: Optional[str] = Field(None, description="Regime de mercado")
+    analyze_patterns: bool = Field(default=True, description="Analisar padrões nas anomalias")
+
+
+@app.post("/api/ml/anomalies")
+async def detect_anomalies(request: AnomalyDetectionRequest):
+    """
+    Detecta anomalias em dados de mercado usando Isolation Forest.
+    
+    **Anomalias indicam:**
+    - Movimentos de preço incomuns (oportunidades)
+    - Mudanças abruptas de volume
+    - Padrões técnicos raros
+    - Possíveis eventos de risco
+    
+    **Workflow:**
+    1. Busca dados históricos
+    2. Cria features técnicas (momentum, volatilidade, etc)
+    3. Treina Isolation Forest
+    4. Detecta anomalias
+    5. Analisa padrões e retornos futuros
+    
+    **Exemplo:**
+    ```bash
+    curl -X POST 'http://localhost:3008/api/ml/anomalies' \\
+      -H 'Content-Type: application/json' \\
+      -d '{
+        "symbol": "PETR4",
+        "start_date": "2025-01-01",
+        "end_date": "2026-01-12",
+        "contamination": 0.1,
+        "analyze_patterns": true
+      }'
+    ```
+    """
+    try:
+        # Buscar dados
+        start_dt = datetime.strptime(request.start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(request.end_date, "%Y-%m-%d")
+        
+        query = """
+        SELECT time, open, high, low, close, volume
+        FROM ohlcv_data
+        WHERE symbol = $1 AND timeframe = $2
+          AND time BETWEEN $3 AND $4
+        ORDER BY time ASC
+        """
+        
+        rows = await ts_pool.fetch(query, request.symbol, request.timeframe, start_dt, end_dt)
+        
+        if not rows:
+            raise HTTPException(status_code=404, detail=f"Dados não encontrados")
+        
+        # DataFrame
+        import pandas as pd
+        df = pd.DataFrame(rows, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
+        df['time'] = pd.to_datetime(df['time'])
+        df.set_index('time', inplace=True)
+        
+        for col in ['open', 'high', 'low', 'close', 'volume']:
+            df[col] = df[col].astype(float)
+        
+        # Criar features
+        feature_engineer = FeatureEngineer()
+        df_features = feature_engineer.create_all_features(df.copy(), regime=request.regime)
+        df_features = feature_engineer.normalize_features(df_features)
+        df_features = df_features.dropna()
+        
+        if len(df_features) < 50:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Dados insuficientes após criar features: {len(df_features)} linhas"
+            )
+        
+        # Features para análise
+        feature_cols = [c for c in df_features.columns 
+                       if c not in ['open', 'high', 'low', 'close', 'volume']]
+        X = df_features[feature_cols]
+        
+        # Treinar detector
+        detector = AnomalyDetector(
+            contamination=request.contamination,
+            n_estimators=request.n_estimators
+        )
+        
+        training_stats = detector.fit(X)
+        
+        # Detectar anomalias
+        anomalies_result = detector.detect_anomalies(X, df_features[['close', 'volume']])
+        
+        # Análise de padrões (opcional)
+        patterns_analysis = None
+        if request.analyze_patterns and anomalies_result['n_anomalies'] > 0:
+            patterns_analysis = detector.analyze_anomaly_patterns(X, df_features)
+        
+        # Preparar resposta
+        response = {
+            "status": "success",
+            "symbol": request.symbol,
+            "period": {
+                "start": request.start_date,
+                "end": request.end_date
+            },
+            "training_stats": training_stats,
+            "detection_results": anomalies_result,
+        }
+        
+        if patterns_analysis:
+            response["pattern_analysis"] = patterns_analysis
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao detectar anomalias: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao detectar anomalias: {str(e)}")
 
 
 # ============================================
