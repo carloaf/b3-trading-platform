@@ -7,7 +7,7 @@ API principal para backtesting, paper trading e execução.
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 import asyncpg
 import redis.asyncio as redis
@@ -21,6 +21,8 @@ from .backtest import BacktestEngine
 from .paper_trading import PaperTradingManager
 from .walk_forward_optimizer import WalkForwardOptimizer
 from .ml.feature_engineer import FeatureEngineer
+from .ml.signal_classifier import SignalClassifier
+from .ml.ml_enhanced_strategy import MLEnhancedStrategy
 
 
 # ============================================
@@ -1147,6 +1149,256 @@ async def create_features(request: FeatureRequest):
     except Exception as e:
         logger.error(f"Erro ao criar features: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro ao criar features: {str(e)}")
+
+
+# ============================================
+# ML CLASSIFIER TRAINING ENDPOINT
+# ============================================
+
+class TrainClassifierRequest(BaseModel):
+    """Request para treinar classificador ML."""
+    symbol: str = Field(..., description="Símbolo do ativo")
+    start_date: str = Field(..., description="Data inicial (YYYY-MM-DD)")
+    end_date: str = Field(..., description="Data final (YYYY-MM-DD)")
+    timeframe: str = Field(default="1d", description="Timeframe")
+    model_type: str = Field(default="random_forest", description="random_forest ou xgboost")
+    n_estimators: int = Field(default=200, description="Número de árvores")
+    lookahead_bars: int = Field(default=5, description="Quantos candles olhar para frente")
+    profit_threshold: float = Field(default=0.01, description="Retorno mínimo para label positivo")
+    regime: Optional[str] = Field(None, description="Regime de mercado")
+    test_size: float = Field(default=0.2, description="Proporção do conjunto de teste")
+    model_name: Optional[str] = Field(None, description="Nome para salvar modelo")
+
+
+@app.post("/api/ml/train")
+async def train_classifier(request: TrainClassifierRequest):
+    """
+    Treina um classificador ML para sinais de trading.
+    
+    **Workflow:**
+    1. Busca dados históricos do símbolo
+    2. Cria features técnicas (momentum, volatilidade, etc)
+    3. Cria labels baseado em retornos futuros
+    4. Treina Random Forest ou XGBoost
+    5. Retorna métricas de treinamento
+    
+    **Exemplo:**
+    ```bash
+    curl -X POST 'http://localhost:3008/api/ml/train' \\
+      -H 'Content-Type: application/json' \\
+      -d '{
+        "symbol": "PETR4",
+        "start_date": "2025-01-01",
+        "end_date": "2026-01-12",
+        "model_type": "random_forest",
+        "n_estimators": 200,
+        "lookahead_bars": 5,
+        "profit_threshold": 0.01,
+        "model_name": "petr4_rf_model"
+      }'
+    ```
+    """
+    try:
+        # Buscar dados
+        start_dt = datetime.strptime(request.start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(request.end_date, "%Y-%m-%d")
+        
+        query = """
+        SELECT time, open, high, low, close, volume
+        FROM ohlcv_data
+        WHERE symbol = $1 AND timeframe = $2
+          AND time BETWEEN $3 AND $4
+        ORDER BY time ASC
+        """
+        
+        rows = await ts_pool.fetch(query, request.symbol, request.timeframe, start_dt, end_dt)
+        
+        if not rows:
+            raise HTTPException(status_code=404, detail=f"Dados não encontrados para {request.symbol}")
+        
+        # DataFrame
+        import pandas as pd
+        df = pd.DataFrame(rows, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
+        df['time'] = pd.to_datetime(df['time'])
+        df.set_index('time', inplace=True)
+        
+        for col in ['open', 'high', 'low', 'close', 'volume']:
+            df[col] = df[col].astype(float)
+        
+        # Criar features
+        feature_engineer = FeatureEngineer()
+        df_features = feature_engineer.create_all_features(df, regime=request.regime)
+        df_features = feature_engineer.normalize_features(df_features)
+        
+        # Criar labels
+        classifier = SignalClassifier(
+            model_type=request.model_type,
+            n_estimators=request.n_estimators
+        )
+        
+        labels = classifier.create_labels(
+            df_features,
+            lookahead_bars=request.lookahead_bars,
+            profit_threshold=request.profit_threshold
+        )
+        
+        # Features para treino
+        feature_cols = [c for c in df_features.columns 
+                       if c not in ['open', 'high', 'low', 'close', 'volume']]
+        X = df_features[feature_cols]
+        
+        # Treinar
+        metrics = classifier.train(X, labels, test_size=request.test_size, cross_validation=True)
+        
+        # Salvar modelo se nome fornecido
+        if request.model_name:
+            model_path = f"/app/models/{request.model_name}.pkl"
+            classifier.save_model(model_path)
+            metrics['model_path'] = model_path
+        
+        # Feature importance
+        feature_importance = classifier.get_feature_importance(top_n=20)
+        
+        return {
+            "status": "success",
+            "symbol": request.symbol,
+            "model_type": request.model_type,
+            "metrics": metrics,
+            "top_features": feature_importance,
+            "parameters": {
+                "lookahead_bars": request.lookahead_bars,
+                "profit_threshold": request.profit_threshold,
+                "n_estimators": request.n_estimators
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao treinar classificador: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao treinar: {str(e)}")
+
+
+# ============================================
+# ML PREDICTION ENDPOINT
+# ============================================
+
+class PredictSignalsRequest(BaseModel):
+    """Request para predizer sinais com ML."""
+    symbol: str = Field(..., description="Símbolo do ativo")
+    start_date: str = Field(..., description="Data inicial")
+    end_date: str = Field(..., description="Data final")
+    timeframe: str = Field(default="1d", description="Timeframe")
+    model_name: str = Field(..., description="Nome do modelo treinado")
+    base_strategy: str = Field(default="mean_reversion", description="Estratégia base")
+    strategy_params: Dict = Field(default={}, description="Parâmetros da estratégia")
+    confidence_threshold: float = Field(default=0.6, description="Threshold de confiança ML")
+    regime: Optional[str] = Field(None, description="Regime de mercado")
+
+
+@app.post("/api/ml/predict")
+async def predict_signals(request: PredictSignalsRequest):
+    """
+    Gera sinais de trading usando ML-Enhanced Strategy.
+    
+    **Workflow:**
+    1. Carrega modelo ML treinado
+    2. Busca dados históricos
+    3. Gera sinais da estratégia base
+    4. Filtra sinais com ML (aceita apenas alta confiança)
+    5. Retorna sinais filtrados + estatísticas
+    
+    **Exemplo:**
+    ```bash
+    curl -X POST 'http://localhost:3008/api/ml/predict' \\
+      -H 'Content-Type: application/json' \\
+      -d '{
+        "symbol": "PETR4",
+        "start_date": "2025-11-01",
+        "end_date": "2026-01-12",
+        "model_name": "petr4_rf_model",
+        "base_strategy": "mean_reversion",
+        "confidence_threshold": 0.7
+      }'
+    ```
+    """
+    try:
+        # Carregar modelo
+        model_path = f"/app/models/{request.model_name}.pkl"
+        classifier = SignalClassifier()
+        classifier.load_model(model_path)
+        
+        # Buscar dados
+        start_dt = datetime.strptime(request.start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(request.end_date, "%Y-%m-%d")
+        
+        query = """
+        SELECT time, open, high, low, close, volume
+        FROM ohlcv_data
+        WHERE symbol = $1 AND timeframe = $2
+          AND time BETWEEN $3 AND $4
+        ORDER BY time ASC
+        """
+        
+        rows = await ts_pool.fetch(query, request.symbol, request.timeframe, start_dt, end_dt)
+        
+        if not rows:
+            raise HTTPException(status_code=404, detail=f"Dados não encontrados")
+        
+        # DataFrame
+        import pandas as pd
+        df = pd.DataFrame(rows, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
+        df['time'] = pd.to_datetime(df['time'])
+        df.set_index('time', inplace=True)
+        
+        for col in ['open', 'high', 'low', 'close', 'volume']:
+            df[col] = df[col].astype(float)
+        
+        # ML-Enhanced Strategy
+        feature_engineer = FeatureEngineer()
+        
+        # Parâmetros padrão se não fornecidos
+        if not request.strategy_params:
+            if request.base_strategy == "mean_reversion":
+                request.strategy_params = {"bb_period": 20, "bb_std": 2.0}
+            elif request.base_strategy == "trend_following":
+                request.strategy_params = {"fast_ema": 12, "slow_ema": 26}
+        
+        ml_strategy = MLEnhancedStrategy(
+            base_strategy_name=request.base_strategy,
+            base_strategy_params=request.strategy_params,
+            classifier=classifier,
+            feature_engineer=feature_engineer,
+            confidence_threshold=request.confidence_threshold,
+            regime=request.regime
+        )
+        
+        # Gerar sinais
+        result = ml_strategy.generate_signals(df)
+        
+        # Preparar resposta com amostra dos últimos 50 sinais
+        signals_df = pd.DataFrame({
+            'time': result['features'].index,
+            'close': result['features']['close'],
+            'base_signal': result['base_signals'],
+            'ml_signal': result['ml_signals'],
+            'ml_confidence': result['ml_confidences']
+        }).tail(50)
+        
+        return {
+            "status": "success",
+            "symbol": request.symbol,
+            "model_name": request.model_name,
+            "base_strategy": request.base_strategy,
+            "statistics": result['statistics'],
+            "signals_sample": signals_df.to_dict(orient='records')
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao predizer sinais: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao predizer: {str(e)}")
 
 
 # ============================================
