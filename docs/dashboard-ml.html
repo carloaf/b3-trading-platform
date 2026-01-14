@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B3 Trading Platform - Dashboard ML</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="mb-8">
+            <h1 class="text-4xl font-bold text-blue-400 mb-2">🤖 B3 Trading Platform - Dashboard ML</h1>
+            <p class="text-gray-400">Machine Learning Model Training & Optimization</p>
+        </header>
+
+        <!-- Tabs -->
+        <div class="mb-6 border-b border-gray-700">
+            <nav class="-mb-px flex space-x-8">
+                <button onclick="showTab('train')" id="tab-train" class="tab-btn border-b-2 border-blue-500 py-4 px-1 text-blue-400 font-medium">
+                    🎯 Train Model
+                </button>
+                <button onclick="showTab('optimize')" id="tab-optimize" class="tab-btn border-b-2 border-transparent py-4 px-1 text-gray-400 hover:text-gray-300 hover:border-gray-300">
+                    ⚙️ Optimize Hyperparameters
+                </button>
+                <button onclick="showTab('anomalies')" id="tab-anomalies" class="tab-btn border-b-2 border-transparent py-4 px-1 text-gray-400 hover:text-gray-300 hover:border-gray-300">
+                    🔍 Detect Anomalies
+                </button>
+            </nav>
+        </div>
+
+        <!-- Train Tab -->
+        <div id="content-train" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Form -->
+                <div class="lg:col-span-1 bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">Training Configuration</h2>
+                    <form id="trainForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Symbol</label>
+                            <input type="text" id="train-symbol" value="PETR4" class="w-full bg-gray-700 rounded px-3 py-2">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Start Date</label>
+                                <input type="date" id="train-start" value="2024-01-01" class="w-full bg-gray-700 rounded px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">End Date</label>
+                                <input type="date" id="train-end" value="2026-01-12" class="w-full bg-gray-700 rounded px-3 py-2">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Model Type</label>
+                            <select id="train-model" class="w-full bg-gray-700 rounded px-3 py-2">
+                                <option value="random_forest">Random Forest</option>
+                                <option value="xgboost">XGBoost</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Lookahead Bars</label>
+                                <input type="number" id="train-lookahead" value="5" min="1" max="20" class="w-full bg-gray-700 rounded px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Profit Threshold</label>
+                                <input type="number" id="train-threshold" value="0.02" step="0.001" class="w-full bg-gray-700 rounded px-3 py-2">
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded">
+                            🚀 Train Model
+                        </button>
+                    </form>
+                    <div id="train-status" class="mt-4 text-sm text-gray-400"></div>
+                </div>
+
+                <!-- Results -->
+                <div class="lg:col-span-2 bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">Training Results</h2>
+                    <div id="train-results" class="text-gray-400">
+                        <p>Train a model to see results here.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Optimize Tab -->
+        <div id="content-optimize" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Form -->
+                <div class="lg:col-span-1 bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">Optimization Configuration</h2>
+                    <form id="optimizeForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Symbol</label>
+                            <input type="text" id="opt-symbol" value="PETR4" class="w-full bg-gray-700 rounded px-3 py-2">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Start Date</label>
+                                <input type="date" id="opt-start" value="2024-01-01" class="w-full bg-gray-700 rounded px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">End Date</label>
+                                <input type="date" id="opt-end" value="2026-01-12" class="w-full bg-gray-700 rounded px-3 py-2">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Model Type</label>
+                            <select id="opt-model" class="w-full bg-gray-700 rounded px-3 py-2">
+                                <option value="random_forest">Random Forest</option>
+                                <option value="xgboost">XGBoost</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Number of Trials</label>
+                            <input type="number" id="opt-trials" value="20" min="10" max="200" class="w-full bg-gray-700 rounded px-3 py-2">
+                        </div>
+                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded">
+                            ⚙️ Optimize
+                        </button>
+                    </form>
+                    <div id="opt-status" class="mt-4 text-sm text-gray-400"></div>
+                </div>
+
+                <!-- Results -->
+                <div class="lg:col-span-2 bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">Optimization Results</h2>
+                    <div id="opt-results" class="text-gray-400">
+                        <p>Run optimization to see results here.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Anomalies Tab -->
+        <div id="content-anomalies" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Form -->
+                <div class="lg:col-span-1 bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">Anomaly Detection</h2>
+                    <form id="anomalyForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Symbol</label>
+                            <input type="text" id="anom-symbol" value="PETR4" class="w-full bg-gray-700 rounded px-3 py-2">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Start Date</label>
+                                <input type="date" id="anom-start" value="2025-01-01" class="w-full bg-gray-700 rounded px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">End Date</label>
+                                <input type="date" id="anom-end" value="2026-01-12" class="w-full bg-gray-700 rounded px-3 py-2">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Contamination</label>
+                            <input type="number" id="anom-contamination" value="0.1" step="0.01" min="0.01" max="0.5" class="w-full bg-gray-700 rounded px-3 py-2">
+                        </div>
+                        <button type="submit" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded">
+                            🔍 Detect Anomalies
+                        </button>
+                    </form>
+                    <div id="anom-status" class="mt-4 text-sm text-gray-400"></div>
+                </div>
+
+                <!-- Results -->
+                <div class="lg:col-span-2 bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">Anomaly Detection Results</h2>
+                    <div id="anom-results" class="text-gray-400">
+                        <p>Detect anomalies to see results here.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3008';
+
+        // Tab switching
+        function showTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('border-blue-500', 'text-blue-400');
+                el.classList.add('border-transparent', 'text-gray-400');
+            });
+            
+            document.getElementById(`content-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).classList.remove('border-transparent', 'text-gray-400');
+            document.getElementById(`tab-${tab}`).classList.add('border-blue-500', 'text-blue-400');
+        }
+
+        // Train Model
+        document.getElementById('trainForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const status = document.getElementById('train-status');
+            const results = document.getElementById('train-results');
+            
+            status.textContent = '⏳ Training model...';
+            status.className = 'mt-4 text-sm text-yellow-400';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/ml/train`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        symbol: document.getElementById('train-symbol').value,
+                        start_date: document.getElementById('train-start').value,
+                        end_date: document.getElementById('train-end').value,
+                        model_type: document.getElementById('train-model').value,
+                        lookahead_bars: parseInt(document.getElementById('train-lookahead').value),
+                        profit_threshold: parseFloat(document.getElementById('train-threshold').value),
+                        save_model: true,
+                        model_name: `${document.getElementById('train-symbol').value.toLowerCase()}_${document.getElementById('train-model').value}`
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    status.textContent = '✅ Model trained successfully!';
+                    status.className = 'mt-4 text-sm text-green-400';
+                    
+                    const metrics = data.metrics;
+                    results.innerHTML = `
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-gray-700 p-4 rounded">
+                                <div class="text-sm text-gray-400">Train Accuracy</div>
+                                <div class="text-2xl font-bold text-green-400">${(metrics.train_accuracy * 100).toFixed(1)}%</div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded">
+                                <div class="text-sm text-gray-400">Test Accuracy</div>
+                                <div class="text-2xl font-bold text-blue-400">${(metrics.test_accuracy * 100).toFixed(1)}%</div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded">
+                                <div class="text-sm text-gray-400">CV Mean Accuracy</div>
+                                <div class="text-2xl font-bold text-purple-400">${(metrics.cv_mean_accuracy * 100).toFixed(1)}%</div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded">
+                                <div class="text-sm text-gray-400">Samples / Features</div>
+                                <div class="text-2xl font-bold text-yellow-400">${metrics.n_samples} / ${metrics.n_features}</div>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <h3 class="font-bold mb-2">Top Features</h3>
+                            <div class="space-y-1">
+                                ${Object.entries(data.top_features).slice(0, 10).map(([name, importance]) => `
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm">${name}</span>
+                                        <div class="flex items-center">
+                                            <div class="w-32 bg-gray-600 rounded-full h-2 mr-2">
+                                                <div class="bg-blue-500 h-2 rounded-full" style="width: ${importance * 100}%"></div>
+                                            </div>
+                                            <span class="text-sm text-gray-400">${(importance * 100).toFixed(1)}%</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(data.detail || 'Training failed');
+                }
+            } catch (error) {
+                status.textContent = `❌ Error: ${error.message}`;
+                status.className = 'mt-4 text-sm text-red-400';
+            }
+        });
+
+        // Optimize Hyperparameters
+        document.getElementById('optimizeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const status = document.getElementById('opt-status');
+            const results = document.getElementById('opt-results');
+            
+            status.textContent = '⏳ Optimizing hyperparameters...';
+            status.className = 'mt-4 text-sm text-yellow-400';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/ml/optimize`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        symbol: document.getElementById('opt-symbol').value,
+                        start_date: document.getElementById('opt-start').value,
+                        end_date: document.getElementById('opt-end').value,
+                        model_type: document.getElementById('opt-model').value,
+                        n_trials: parseInt(document.getElementById('opt-trials').value),
+                        lookahead_bars: 5,
+                        profit_threshold: 0.02
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    status.textContent = '✅ Optimization complete!';
+                    status.className = 'mt-4 text-sm text-green-400';
+                    
+                    const opt = data.optimization;
+                    results.innerHTML = `
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="bg-gray-700 p-4 rounded">
+                                <div class="text-sm text-gray-400">Best F1 Score</div>
+                                <div class="text-2xl font-bold text-green-400">${(opt.best_score * 100).toFixed(1)}%</div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded">
+                                <div class="text-sm text-gray-400">Best Trial</div>
+                                <div class="text-2xl font-bold text-blue-400">${opt.best_trial} / ${opt.n_trials}</div>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <h3 class="font-bold mb-2">Best Parameters</h3>
+                            <div class="bg-gray-700 p-3 rounded text-sm">
+                                <pre class="text-gray-300">${JSON.stringify(opt.best_params, null, 2)}</pre>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="font-bold mb-2">Parameter Importance</h3>
+                            <div class="space-y-1">
+                                ${Object.entries(opt.param_importance).map(([name, importance]) => `
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm">${name}</span>
+                                        <div class="flex items-center">
+                                            <div class="w-32 bg-gray-600 rounded-full h-2 mr-2">
+                                                <div class="bg-green-500 h-2 rounded-full" style="width: ${importance * 100}%"></div>
+                                            </div>
+                                            <span class="text-sm text-gray-400">${(importance * 100).toFixed(1)}%</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(data.detail || 'Optimization failed');
+                }
+            } catch (error) {
+                status.textContent = `❌ Error: ${error.message}`;
+                status.className = 'mt-4 text-sm text-red-400';
+            }
+        });
+
+        // Detect Anomalies
+        document.getElementById('anomalyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const status = document.getElementById('anom-status');
+            const results = document.getElementById('anom-results');
+            
+            status.textContent = '⏳ Detecting anomalies...';
+            status.className = 'mt-4 text-sm text-yellow-400';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/ml/anomalies`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        symbol: document.getElementById('anom-symbol').value,
+                        start_date: document.getElementById('anom-start').value,
+                        end_date: document.getElementById('anom-end').value,
+                        contamination: parseFloat(document.getElementById('anom-contamination').value),
+                        analyze_patterns: true
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    status.textContent = '✅ Anomalies detected!';
+                    status.className = 'mt-4 text-sm text-green-400';
+                    
+                    const det = data.detection_results;
+                    const pat = data.pattern_analysis;
+                    
+                    results.innerHTML = `
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="bg-gray-700 p-4 rounded">
+                                <div class="text-sm text-gray-400">Anomalies Detected</div>
+                                <div class="text-2xl font-bold text-red-400">${det.n_anomalies}</div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded">
+                                <div class="text-sm text-gray-400">Anomaly Rate</div>
+                                <div class="text-2xl font-bold text-yellow-400">${det.anomaly_rate.toFixed(1)}%</div>
+                            </div>
+                        </div>
+                        ${pat ? `
+                        <div>
+                            <h3 class="font-bold mb-2">Pattern Analysis</h3>
+                            <div class="grid grid-cols-3 gap-2 mb-4">
+                                <div class="bg-gray-700 p-3 rounded text-center">
+                                    <div class="text-xs text-gray-400">Extreme Price</div>
+                                    <div class="text-lg font-bold">${pat.anomaly_types.extreme_price || 0}</div>
+                                </div>
+                                <div class="bg-gray-700 p-3 rounded text-center">
+                                    <div class="text-xs text-gray-400">Extreme Volume</div>
+                                    <div class="text-lg font-bold">${pat.anomaly_types.extreme_volume || 0}</div>
+                                </div>
+                                <div class="bg-gray-700 p-3 rounded text-center">
+                                    <div class="text-xs text-gray-400">High Volatility</div>
+                                    <div class="text-lg font-bold">${pat.anomaly_types.high_volatility || 0}</div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-700 p-3 rounded">
+                                <div class="text-sm mb-1">Average Future Returns (Anomalies)</div>
+                                <div class="text-xs text-gray-400">
+                                    1d: ${pat.avg_future_return_1d.toFixed(2)}% |
+                                    3d: ${pat.avg_future_return_3d.toFixed(2)}% |
+                                    5d: ${pat.avg_future_return_5d.toFixed(2)}%
+                                </div>
+                            </div>
+                        </div>
+                        ` : ''}
+                    `;
+                } else {
+                    throw new Error(data.detail || 'Detection failed');
+                }
+            } catch (error) {
+                status.textContent = `❌ Error: ${error.message}`;
+                status.className = 'mt-4 text-sm text-red-400';
+            }
+        });
+    </script>
+</body>
+</html>
