@@ -86,7 +86,7 @@
   curl http://localhost:3008/health
   curl http://localhost:3002/health
   ```
-  
+
 ### FASE 2: Integração com Dados Reais
 
 - [ ] **PASSO 5:** Obter e configurar BRAPI Token
@@ -104,9 +104,8 @@
   - Instalar MT5 via Wine ou VM Windows
   - Configurar credenciais no `.env`
   - Implementar conexão MT5 no data-collector
+  ---
 
----
-7n
 ### FASE 3: Estratégias Avançadas
 
 - [x] **PASSO 8:** Implementar Regime-Adaptive Strategy ✅

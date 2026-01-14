@@ -1534,6 +1534,333 @@ async def detect_anomalies(request: AnomalyDetectionRequest):
 
 
 # ============================================
+# ML - BACKTESTING COMPARATIVO
+# ============================================
+
+class BacktestCompareRequest(BaseModel):
+    """Request para comparação de backtesting."""
+    symbol: str = Field(..., description="Símbolo do ativo (ex: PETR4)")
+    start_date: str = Field(..., description="Data inicial (YYYY-MM-DD)")
+    end_date: str = Field(..., description="Data final (YYYY-MM-DD)")
+    timeframe: str = Field(default="1d", description="Timeframe dos dados")
+    
+    # Estratégia base
+    base_strategy: str = Field(..., description="Nome da estratégia base (ex: mean_reversion)")
+    strategy_params: Dict = Field(default_factory=dict, description="Parâmetros da estratégia")
+    
+    # ML Classifier
+    model_path: str = Field(..., description="Caminho do modelo ML treinado (ex: models/petr4_rf.pkl)")
+    confidence_threshold: float = Field(default=0.6, ge=0, le=1, description="Threshold de confiança ML")
+    
+    # Backtest params
+    initial_capital: float = Field(default=100000, description="Capital inicial")
+    commission: float = Field(default=0.0025, description="Taxa de corretagem (0.25%)")
+    slippage: float = Field(default=0.001, description="Slippage estimado (0.1%)")
+    
+    regime: Optional[str] = Field(None, description="Regime de mercado")
+
+
+@app.post("/api/ml/compare", tags=["ML"], summary="🆚 Comparar Estratégia Base vs ML-Enhanced")
+async def compare_strategies(request: BacktestCompareRequest):
+    """
+    Compara performance de estratégia base vs ML-enhanced com métricas profissionais.
+    
+    Retorna análise detalhada incluindo:
+    - Métricas de performance (Sharpe, retorno, drawdown, win rate, profit factor)
+    - Equity curves comparativas
+    - Análise de sinais filtrados pelo ML
+    - Recomendação sobre uso do filtro ML
+    - Trades executados
+    
+    Exemplo:
+    ```bash
+    curl -X POST 'http://localhost:3008/api/ml/compare' \\
+      -H 'Content-Type: application/json' \\
+      -d '{
+        "symbol": "PETR4",
+        "start_date": "2025-01-01",
+        "end_date": "2026-01-12",
+        "base_strategy": "mean_reversion",
+        "strategy_params": {"rsi_period": 14, "rsi_oversold": 30, "rsi_overbought": 70},
+        "model_path": "models/petr4_rf.pkl",
+        "confidence_threshold": 0.65,
+        "initial_capital": 100000,
+        "commission": 0.0025,
+        "slippage": 0.001
+      }'
+    ```
+    """
+    try:
+        # 1. Buscar dados
+        start_dt = datetime.strptime(request.start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(request.end_date, "%Y-%m-%d")
+        
+        query = """
+        SELECT time, open, high, low, close, volume
+        FROM ohlcv_data
+        WHERE symbol = $1 AND timeframe = $2
+          AND time BETWEEN $3 AND $4
+        ORDER BY time ASC
+        """
+        
+        rows = await ts_pool.fetch(query, request.symbol, request.timeframe, start_dt, end_dt)
+        
+        if not rows:
+            raise HTTPException(status_code=404, detail=f"Dados não encontrados")
+        
+        # DataFrame
+        import pandas as pd
+        df = pd.DataFrame(rows, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
+        df['time'] = pd.to_datetime(df['time'])
+        df.set_index('time', inplace=True)
+        
+        for col in ['open', 'high', 'low', 'close', 'volume']:
+            df[col] = df[col].astype(float)
+        
+        # 2. Carregar modelo ML
+        import joblib
+        import os
+        
+        model_full_path = os.path.join('/app', request.model_path)
+        
+        if not os.path.exists(model_full_path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Modelo não encontrado: {model_full_path}"
+            )
+        
+        # Carregar modelo (é um dict com 'model', 'model_type', etc)
+        model_data = joblib.load(model_full_path)
+        
+        # Criar SignalClassifier e carregar modelo
+        classifier = SignalClassifier(model_type=model_data['model_type'])
+        classifier.model = model_data['model']
+        classifier.feature_names = model_data.get('feature_names')
+        classifier.feature_importance = model_data.get('feature_importance')
+        classifier.training_metrics = model_data.get('training_metrics')
+        
+        logger.info(f"Modelo carregado: {model_full_path} ({model_data['model_type']})")
+        
+        # 3. Criar feature engineer
+        feature_engineer = FeatureEngineer()
+        
+        # 4. Criar estratégia ML-enhanced
+        from .ml.ml_enhanced_strategy import MLEnhancedStrategy
+        
+        ml_strategy = MLEnhancedStrategy(
+            base_strategy_name=request.base_strategy,
+            base_strategy_params=request.strategy_params,
+            classifier=classifier,
+            feature_engineer=feature_engineer,
+            confidence_threshold=request.confidence_threshold,
+            regime=request.regime
+        )
+        
+        # 5. Executar comparação
+        comparison_result = ml_strategy.backtest_comparison(
+            df=df,
+            initial_capital=request.initial_capital,
+            commission=request.commission,
+            slippage=request.slippage
+        )
+        
+        # 6. Preparar resposta
+        response = {
+            "status": "success",
+            "symbol": request.symbol,
+            "period": {
+                "start": request.start_date,
+                "end": request.end_date,
+                "days": len(df)
+            },
+            "config": {
+                "base_strategy": request.base_strategy,
+                "strategy_params": request.strategy_params,
+                "model": request.model_path,
+                "confidence_threshold": request.confidence_threshold,
+                "initial_capital": request.initial_capital,
+                "commission": request.commission,
+                "slippage": request.slippage
+            },
+            "results": comparison_result
+        }
+        
+        # Log resumo
+        logger.info(f"✅ Comparação concluída: {request.symbol}")
+        logger.info(f"   Base Strategy: {comparison_result['base_strategy']['total_return']}% retorno")
+        logger.info(f"   ML Enhanced:   {comparison_result['ml_enhanced']['total_return']}% retorno")
+        logger.info(f"   Improvement:   {comparison_result['improvement']['return_delta']}%")
+        logger.info(f"   Recommendation: {comparison_result['summary']['recommendation']}")
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro na comparação de estratégias: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro na comparação: {str(e)}")
+
+
+# ============================================
+# ML - HYPERPARAMETER OPTIMIZATION
+# ============================================
+
+class HyperparameterOptimizationRequest(BaseModel):
+    """Request para otimização de hiperparâmetros."""
+    symbol: str = Field(..., description="Símbolo do ativo")
+    start_date: str = Field(..., description="Data inicial (YYYY-MM-DD)")
+    end_date: str = Field(..., description="Data final (YYYY-MM-DD)")
+    timeframe: str = Field(default="1d", description="Timeframe")
+    model_type: str = Field(..., description="Tipo do modelo (random_forest ou xgboost)")
+    n_trials: int = Field(default=50, ge=10, le=200, description="Número de trials")
+    lookahead_bars: int = Field(default=5, ge=1, le=20, description="Barras para lookahead")
+    profit_threshold: float = Field(default=0.02, ge=0.001, le=0.1, description="Threshold de lucro")
+    regime: Optional[str] = Field(None, description="Regime de mercado")
+
+
+@app.post("/api/ml/optimize", tags=["ML"], summary="⚙️ Otimizar Hiperparâmetros ML")
+async def optimize_hyperparameters(request: HyperparameterOptimizationRequest):
+    """
+    Otimiza hiperparâmetros do modelo ML usando Optuna.
+    
+    Retorna:
+    - Melhores parâmetros encontrados
+    - Score do melhor modelo
+    - Histórico de otimização
+    - Importância dos hiperparâmetros
+    
+    Exemplo:
+    ```bash
+    curl -X POST 'http://localhost:3008/api/ml/optimize' \\
+      -H 'Content-Type: application/json' \\
+      -d '{
+        "symbol": "PETR4",
+        "start_date": "2024-01-01",
+        "end_date": "2026-01-12",
+        "model_type": "random_forest",
+        "n_trials": 30,
+        "lookahead_bars": 5,
+        "profit_threshold": 0.02
+      }'
+    ```
+    """
+    try:
+        # 1. Buscar dados
+        start_dt = datetime.strptime(request.start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(request.end_date, "%Y-%m-%d")
+        
+        query = """
+        SELECT time, open, high, low, close, volume
+        FROM ohlcv_data
+        WHERE symbol = $1 AND timeframe = $2
+          AND time BETWEEN $3 AND $4
+        ORDER BY time ASC
+        """
+        
+        rows = await ts_pool.fetch(query, request.symbol, request.timeframe, start_dt, end_dt)
+        
+        if not rows:
+            raise HTTPException(status_code=404, detail="Dados não encontrados")
+        
+        # DataFrame
+        import pandas as pd
+        df = pd.DataFrame(rows, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
+        df['time'] = pd.to_datetime(df['time'])
+        df.set_index('time', inplace=True)
+        
+        for col in ['open', 'high', 'low', 'close', 'volume']:
+            df[col] = df[col].astype(float)
+        
+        # 2. Feature Engineering
+        feature_engineer = FeatureEngineer()
+        df_features = feature_engineer.create_all_features(df.copy(), regime=request.regime)
+        df_features = feature_engineer.normalize_features(df_features)
+        df_features = df_features.dropna()
+        
+        if len(df_features) < 100:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Dados insuficientes: {len(df_features)} linhas (mínimo: 100)"
+            )
+        
+        # 3. Criar labels
+        classifier = SignalClassifier(model_type=request.model_type)
+        labels = classifier.create_labels(
+            df_features,
+            lookahead_bars=request.lookahead_bars,
+            profit_threshold=request.profit_threshold
+        )
+        
+        # Features - remover NaN
+        feature_cols = [c for c in df_features.columns 
+                       if c not in ['open', 'high', 'low', 'close', 'volume']]
+        X = df_features[feature_cols].loc[labels.index]
+        y = labels
+        
+        # Remover NaN
+        valid_mask = ~(X.isna().any(axis=1) | y.isna())
+        X = X[valid_mask]
+        y = y[valid_mask]
+        
+        if len(X) < 100:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Dados insuficientes após limpeza: {len(X)} linhas (mínimo: 100)"
+            )
+        
+        logger.info(f"Otimização: {len(X)} samples, {len(X.columns)} features")
+        
+        # 4. Executar otimização
+        from .ml.hyperparameter_tuner import HyperparameterTuner
+        
+        tuner = HyperparameterTuner(
+            model_type=request.model_type,
+            n_trials=request.n_trials,
+            cv_splits=5
+        )
+        
+        optimization_result = tuner.optimize(X, y, direction="maximize")
+        
+        # 5. Importância dos hiperparâmetros
+        param_importance = tuner.get_param_importance(top_n=10)
+        
+        # 6. Preparar resposta
+        response = {
+            "status": "success",
+            "symbol": request.symbol,
+            "period": {
+                "start": request.start_date,
+                "end": request.end_date,
+                "days": len(df)
+            },
+            "optimization": {
+                **optimization_result,
+                "param_importance": param_importance
+            },
+            "data_info": {
+                "n_samples": len(X),
+                "n_features": len(X.columns),
+                "class_distribution": {
+                    "0": int((y == 0).sum()),
+                    "1": int((y == 1).sum())
+                }
+            }
+        }
+        
+        logger.info(f"✅ Otimização concluída: {request.model_type}")
+        logger.info(f"   Best Score: {optimization_result['best_score']}")
+        logger.info(f"   Best Trial: {optimization_result['best_trial']}/{request.n_trials}")
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro na otimização: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro na otimização: {str(e)}")
+
+
+# ============================================
 # STARTUP MESSAGE
 # ============================================
 
