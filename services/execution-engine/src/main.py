@@ -20,6 +20,7 @@ from .strategies import StrategyManager, get_recommended_strategy, detect_market
 from .backtest import BacktestEngine
 from .paper_trading import PaperTradingManager
 from .walk_forward_optimizer import WalkForwardOptimizer
+from .ml.feature_engineer import FeatureEngineer
 
 
 # ============================================
@@ -1005,6 +1006,147 @@ async def list_symbols():
     return {
         "symbols": [dict(row) for row in rows]
     }
+
+
+# ============================================
+# ML FEATURE ENGINEERING ENDPOINTS
+# ============================================
+
+class FeatureRequest(BaseModel):
+    """Request para criação de features."""
+    symbol: str = Field(..., description="Símbolo do ativo")
+    start_date: str = Field(..., description="Data inicial (YYYY-MM-DD)")
+    end_date: str = Field(..., description="Data final (YYYY-MM-DD)")
+    timeframe: str = Field(default="1d", description="Timeframe")
+    regime: Optional[str] = Field(None, description="Regime: trending, ranging, volatile")
+    normalize: bool = Field(default=True, description="Normalizar features")
+    n_features: int = Field(default=20, description="Número de features a selecionar")
+
+
+@app.post("/api/ml/features")
+async def create_features(request: FeatureRequest):
+    """
+    Cria features de ML a partir de dados OHLCV.
+    
+    **Parâmetros:**
+    - `symbol`: Código do ativo (ex: PETR4, VALE3)
+    - `start_date`: Data inicial no formato YYYY-MM-DD
+    - `end_date`: Data final no formato YYYY-MM-DD
+    - `timeframe`: Período dos candles (1d, 1h, etc)
+    - `regime`: Regime de mercado (opcional: trending, ranging, volatile)
+    - `normalize`: Se True, normaliza features com RobustScaler
+    - `n_features`: Número de melhores features a retornar
+    
+    **Retorna:**
+    - DataFrame com features técnicas calculadas
+    - Lista de features disponíveis
+    - Estatísticas descritivas
+    
+    **Exemplo:**
+    ```bash
+    curl -X POST 'http://localhost:3008/api/ml/features' \\
+      -H 'Content-Type: application/json' \\
+      -d '{
+        "symbol": "PETR4",
+        "start_date": "2025-06-01",
+        "end_date": "2026-01-12",
+        "regime": "trending",
+        "normalize": true
+      }'
+    ```
+    """
+    try:
+        # Converter datas
+        from datetime import datetime
+        start_dt = datetime.strptime(request.start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(request.end_date, "%Y-%m-%d")
+        
+        # Buscar dados históricos
+        query = """
+        SELECT time, open, high, low, close, volume
+        FROM ohlcv_data
+        WHERE symbol = $1 
+          AND timeframe = $2
+          AND time BETWEEN $3 AND $4
+        ORDER BY time ASC
+        """
+        
+        rows = await ts_pool.fetch(
+            query,
+            request.symbol,
+            request.timeframe,
+            start_dt,
+            end_dt
+        )
+        
+        if not rows:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Nenhum dado encontrado para {request.symbol} no período especificado"
+            )
+        
+        # Converter para DataFrame
+        import pandas as pd
+        df = pd.DataFrame(rows, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
+        df['time'] = pd.to_datetime(df['time'])
+        df.set_index('time', inplace=True)
+        
+        # Converter Decimal para float
+        for col in ['open', 'high', 'low', 'close', 'volume']:
+            df[col] = df[col].astype(float)
+        
+        # Criar features
+        feature_engineer = FeatureEngineer(n_features=request.n_features)
+        df_features = feature_engineer.create_all_features(df, regime=request.regime)
+        
+        # Normalizar se solicitado
+        if request.normalize:
+            df_features = feature_engineer.normalize_features(df_features)
+        
+        # Remover NaN
+        df_features = df_features.dropna()
+        
+        # Estatísticas
+        feature_columns = [c for c in df_features.columns 
+                          if c not in ['open', 'high', 'low', 'close', 'volume']]
+        
+        stats = {
+            "total_rows": len(df_features),
+            "total_features": len(feature_columns),
+            "date_range": {
+                "start": df_features.index[0].isoformat(),
+                "end": df_features.index[-1].isoformat()
+            },
+            "feature_categories": {
+                "momentum": len([f for f in feature_columns if any(x in f for x in ['rsi', 'roc', 'stoch', 'williams', 'momentum'])]),
+                "volatility": len([f for f in feature_columns if any(x in f for x in ['atr', 'bb', 'volatility', 'parkinson'])]),
+                "trend": len([f for f in feature_columns if any(x in f for x in ['ema', 'macd', 'adx', 'aroon', 'lr_slope'])]),
+                "volume": len([f for f in feature_columns if any(x in f for x in ['volume', 'obv', 'vwap', 'mfi', 'vpt'])]),
+                "pattern": len([f for f in feature_columns if any(x in f for x in ['body', 'shadow', 'doji', 'hammer', 'engulfing'])]),
+                "regime": len([f for f in feature_columns if 'regime' in f])
+            }
+        }
+        
+        # Retornar amostra das últimas 100 linhas
+        sample_size = min(100, len(df_features))
+        df_sample = df_features.tail(sample_size)
+        
+        return {
+            "status": "success",
+            "symbol": request.symbol,
+            "timeframe": request.timeframe,
+            "regime": request.regime,
+            "normalized": request.normalize,
+            "statistics": stats,
+            "feature_names": feature_columns,
+            "sample_data": df_sample.reset_index().to_dict(orient='records')
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao criar features: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao criar features: {str(e)}")
 
 
 # ============================================
