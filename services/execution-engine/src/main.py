@@ -792,8 +792,8 @@ async def backtest_wave3_multi_assets(
             # Buscar dados diários
             query_daily = """
                 SELECT time, open, high, low, close, volume
-                FROM ohlcv_data
-                WHERE symbol = $1 AND timeframe = '1d'
+                FROM ohlcv_1d
+                WHERE symbol = $1
                   AND time >= $2 AND time <= $3
                 ORDER BY time ASC
             """
@@ -807,11 +807,16 @@ async def backtest_wave3_multi_assets(
             df_daily = pd.DataFrame(rows_daily, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
             df_daily.set_index('time', inplace=True)
             
+            # Converter Decimal para float
+            for col in ['open', 'high', 'low', 'close']:
+                df_daily[col] = df_daily[col].astype(float)
+            df_daily['volume'] = df_daily['volume'].astype(int)
+            
             # Buscar dados de 60min
             query_60min = """
                 SELECT time, open, high, low, close, volume
-                FROM ohlcv_data
-                WHERE symbol = $1 AND timeframe = '1h'
+                FROM ohlcv_1h
+                WHERE symbol = $1
                   AND time >= $2 AND time <= $3
                 ORDER BY time ASC
             """
@@ -824,6 +829,11 @@ async def backtest_wave3_multi_assets(
             
             df_60min = pd.DataFrame(rows_60min, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
             df_60min.set_index('time', inplace=True)
+            
+            # Converter Decimal para float
+            for col in ['open', 'high', 'low', 'close']:
+                df_60min[col] = df_60min[col].astype(float)
+            df_60min['volume'] = df_60min['volume'].astype(int)
             
             # Criar instância da estratégia Wave3
             wave3 = Wave3Strategy(
@@ -1000,7 +1010,7 @@ async def backtest_wave3_daily_multi(
             
             rows = await ts_pool.fetch(query, symbol, start_dt, end_dt)
             
-            if len(rows) < 100:
+            if len(rows) < 50:
                 logger.warning(f"⚠️ {symbol}: Dados insuficientes ({len(rows)} bars)")
                 continue
             
@@ -1086,6 +1096,129 @@ async def backtest_wave3_daily_multi(
         
     except Exception as e:
         logger.error(f"❌ Erro em backtest_wave3_daily_multi: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/data/collect-yfinance", tags=["Data"], summary="📥 Coletar Dados via yfinance")
+async def collect_data_yfinance(
+    tickers: List[str] = Query(..., description="Lista de tickers (ex: PETR4.SA)"),
+    start_date: str = Query(..., description="Data início (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="Data fim (YYYY-MM-DD)"),
+    timeframes: List[str] = Query(default=['1d'], description="Timeframes: 1d, 1h, 5m")
+):
+    """
+    Coleta dados históricos via yfinance e insere no TimescaleDB.
+    
+    **Timeframes suportados:**
+    - `1d`: Diário
+    - `1h`: 60 minutos
+    - `5m`: 5 minutos
+    
+    **Exemplo:**
+    ```bash
+    curl -X POST "http://localhost:3008/api/data/collect-yfinance" \\
+      -H "Content-Type: application/json" \\
+      -d '{
+        "tickers": ["VALE3.SA", "ITUB4.SA", "PETR4.SA"],
+        "start_date": "2023-01-01",
+        "end_date": "2026-01-15",
+        "timeframes": ["1d", "1h"]
+      }'
+    ```
+    """
+    try:
+        import yfinance as yf
+        from datetime import datetime
+        
+        logger.info(f"📥 Coletando {len(tickers)} ativos em {len(timeframes)} timeframes...")
+        
+        results = []
+        
+        for ticker in tickers:
+            ticker_results = {}
+            symbol = ticker.replace('.SA', '').replace('.', '')  # PETR4.SA -> PETR4
+            
+            logger.info(f"⏳ Processando {ticker}...")
+            
+            try:
+                stock = yf.Ticker(ticker)
+                
+                for timeframe in timeframes:
+                    # Mapear timeframe para intervalo do yfinance
+                    interval_map = {
+                        '1d': '1d',
+                        '1h': '1h',
+                        '60m': '1h',
+                        '5m': '5m',
+                        '15m': '15m',
+                        '30m': '30m'
+                    }
+                    
+                    interval = interval_map.get(timeframe, '1d')
+                    
+                    logger.info(f"  📊 Baixando {timeframe}...")
+                    df = stock.history(start=start_date, end=end_date, interval=interval)
+                    
+                    if df.empty:
+                        logger.warning(f"  ⚠️ {ticker} {timeframe}: Sem dados")
+                        continue
+                    
+                    # Inserir no banco
+                    inserted = 0
+                    for index, row in df.iterrows():
+                        try:
+                            await ts_pool.execute("""
+                                INSERT INTO ohlcv_data (time, symbol, timeframe, open, high, low, close, volume)
+                                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                                ON CONFLICT (time, symbol, timeframe) DO NOTHING
+                            """, 
+                                index.to_pydatetime(),
+                                symbol,
+                                timeframe,
+                                float(row['Open']),
+                                float(row['High']),
+                                float(row['Low']),
+                                float(row['Close']),
+                                int(row['Volume'])
+                            )
+                            inserted += 1
+                        except Exception as e:
+                            logger.error(f"    Erro ao inserir linha: {e}")
+                            continue
+                    
+                    ticker_results[timeframe] = inserted
+                    logger.success(f"  ✅ {ticker} {timeframe}: {inserted} barras")
+                
+                results.append({
+                    'ticker': ticker,
+                    'symbol': symbol,
+                    'status': 'success',
+                    'data': ticker_results
+                })
+                
+            except Exception as e:
+                logger.error(f"  ❌ Erro em {ticker}: {e}")
+                results.append({
+                    'ticker': ticker,
+                    'status': 'error',
+                    'error': str(e)
+                })
+        
+        total_bars = sum(
+            sum(r['data'].values()) 
+            for r in results 
+            if r['status'] == 'success'
+        )
+        
+        return {
+            'status': 'success',
+            'total_tickers': len(tickers),
+            'total_bars_inserted': total_bars,
+            'results': results
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Erro em collect_data_yfinance: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
