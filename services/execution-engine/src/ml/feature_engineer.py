@@ -359,10 +359,13 @@ class FeatureEngineer:
             feature_columns = [c for c in feature_columns 
                              if c not in ['open', 'high', 'low', 'close', 'volume']]
         
+        # Substituir inf/-inf por NaN e depois preencher com 0
+        df[feature_columns] = df[feature_columns].replace([np.inf, -np.inf], np.nan).fillna(0)
+        
         if fit:
-            df[feature_columns] = self.scaler.fit_transform(df[feature_columns].fillna(0))
+            df[feature_columns] = self.scaler.fit_transform(df[feature_columns])
         else:
-            df[feature_columns] = self.scaler.transform(df[feature_columns].fillna(0))
+            df[feature_columns] = self.scaler.transform(df[feature_columns])
         
         return df
     

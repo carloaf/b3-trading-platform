@@ -1917,9 +1917,12 @@ async def start_ml_paper_trader(request: MLPaperTraderRequest):
             )
         
         # Criar ML Paper Trader
+        # Se model_path já começa com /app/, não adicionar novamente
+        model_path = request.model_path if request.model_path.startswith('/app/') else f"/app/{request.model_path}"
+        
         ml_paper_trader = MLPaperTrader(
             paper_manager=paper_manager,
-            model_path=f"/app/{request.model_path}",
+            model_path=model_path,
             strategy_name=request.strategy,
             strategy_params=request.strategy_params,
             confidence_threshold=request.confidence_threshold,

@@ -187,9 +187,9 @@ class AnomalyDetector:
                 if df_ohlcv is not None and idx in df_ohlcv.index:
                     ohlcv = df_ohlcv.loc[idx]
                     anomaly_info.update({
-                        "close": float(ohlcv['close']),
-                        "volume": float(ohlcv['volume']),
-                        "price_change_pct": float(ohlcv['close'].pct_change()) if hasattr(ohlcv['close'], 'pct_change') else 0
+                        "close": float(ohlcv['close']) if not pd.isna(ohlcv['close']) else 0.0,
+                        "volume": float(ohlcv['volume']) if not pd.isna(ohlcv['volume']) else 0.0,
+                        "price_change_pct": 0.0  # Simplificar cálculo
                     })
                 
                 # Features mais anormais
@@ -197,7 +197,11 @@ class AnomalyDetector:
                 feature_deviations = {}
                 for feat in self.feature_names[:10]:  # Top 10 features
                     if feat in feature_values.index:
-                        feature_deviations[feat] = float(feature_values[feat])
+                        try:
+                            feature_deviations[feat] = float(feature_values[feat])
+                        except (TypeError, ValueError):
+                            # Ignorar features que não podem ser convertidas para float
+                            continue
                 
                 anomaly_info["top_features"] = feature_deviations
                 anomalies_details.append(anomaly_info)
