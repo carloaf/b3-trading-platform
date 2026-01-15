@@ -18,6 +18,7 @@ from loguru import logger
 
 from .strategies import StrategyManager, get_recommended_strategy, detect_market_regime
 from .strategies.wave3_strategy import Wave3Strategy
+from .strategies.wave3_daily_strategy import Wave3DailyStrategy
 from .backtest import BacktestEngine
 from .paper_trading import PaperTradingManager
 from .walk_forward_optimizer import WalkForwardOptimizer
@@ -933,6 +934,158 @@ async def backtest_wave3_multi_assets(
         
     except Exception as e:
         logger.error(f"❌ Erro em backtest_wave3_multi_assets: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/backtest/wave3-daily", tags=["Backtest"], summary="🌊 Backtest Wave3 Daily (Simplificado)")
+async def backtest_wave3_daily_multi(
+    symbols: List[str] = Query(..., description="Lista de símbolos"),
+    start_date: str = Query(..., description="Data início (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="Data fim (YYYY-MM-DD)"),
+    ema_long: int = Query(72, description="Períodos MME longa"),
+    ema_short: int = Query(17, description="Períodos MME curta"),
+    risk_percent: float = Query(0.06, description="% Risco por trade"),
+    reward_ratio: float = Query(3.0, description="Ratio Reward:Risk"),
+    initial_capital: float = Query(100000.0, description="Capital inicial")
+):
+    """
+    Backtest Wave3 versão simplificada (apenas dados diários).
+    
+    **Diferenças da versão completa:**
+    - Opera apenas no gráfico diário (não precisa de 60min)
+    - Setup identificado no próprio daily
+    - Mais fácil de testar com dados disponíveis
+    
+    **Mantém os princípios Wave3:**
+    - MME 72 + MME 17
+    - Regra dos 17 candles
+    - Zona de entrada (±1%)
+    - Higher lows confirmados
+    - Risk:Reward 1:3
+    
+    **Exemplo:**
+    ```bash
+    curl -X POST "http://localhost:3008/api/backtest/wave3-daily" \\
+      -H "Content-Type: application/json" \\
+      -d '{
+        "symbols": ["PETR4", "VALE3", "ITUB4", "WEGE3", "BBDC4"],
+        "start_date": "2023-01-01",
+        "end_date": "2025-12-31",
+        "initial_capital": 100000
+      }'
+    ```
+    """
+    try:
+        import pandas as pd
+        import numpy as np
+        
+        logger.info(f"🌊 Backtest Wave3 Daily: {len(symbols)} ativos")
+        
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        
+        results = []
+        
+        for symbol in symbols:
+            logger.info(f"📊 Testando {symbol}...")
+            
+            # Buscar dados diários
+            query = """
+                SELECT time, open, high, low, close, volume
+                FROM ohlcv_data
+                WHERE symbol = $1 AND timeframe = '1d'
+                  AND time >= $2 AND time <= $3
+                ORDER BY time ASC
+            """
+            
+            rows = await ts_pool.fetch(query, symbol, start_dt, end_dt)
+            
+            if len(rows) < 100:
+                logger.warning(f"⚠️ {symbol}: Dados insuficientes ({len(rows)} bars)")
+                continue
+            
+            df = pd.DataFrame(rows, columns=['time', 'open', 'high', 'low', 'close', 'volume'])
+            df.set_index('time', inplace=True)
+            
+            # Converter Decimal para float
+            for col in ['open', 'high', 'low', 'close']:
+                df[col] = df[col].astype(float)
+            df['volume'] = df['volume'].astype(int)
+            
+            # Criar estratégia Wave3 Daily
+            wave3_daily = Wave3DailyStrategy(
+                ema_long=ema_long,
+                ema_short=ema_short,
+                zone_tolerance=0.01,
+                min_candles_validation=17,
+                risk_percent=risk_percent,
+                reward_ratio=reward_ratio
+            )
+            
+            # Executar backtest
+            bt_result = wave3_daily.backtest(df, initial_capital)
+            
+            if bt_result['total_trades'] == 0:
+                logger.warning(f"⚠️ {symbol}: Nenhum trade gerado")
+                results.append({
+                    'symbol': symbol,
+                    'total_trades': 0,
+                    'message': 'Nenhum setup identificado'
+                })
+                continue
+            
+            # Adicionar ao resultado
+            result = {
+                'symbol': symbol,
+                'metrics': bt_result,
+                'trades_sample': bt_result['trades'][:5] if bt_result.get('trades') else []
+            }
+            
+            results.append(result)
+            logger.success(f"✅ {symbol}: {bt_result['total_trades']} trades | "
+                          f"Return: {bt_result['total_return']:.2f}% | "
+                          f"Win Rate: {bt_result['win_rate']:.1f}%")
+        
+        # Ordenar por retorno
+        results_sorted = sorted(
+            [r for r in results if r.get('metrics')],
+            key=lambda x: x['metrics'].get('total_return', -999),
+            reverse=True
+        )
+        
+        # Adicionar ranking
+        for i, r in enumerate(results_sorted):
+            r['rank'] = i + 1
+        
+        # Estatísticas gerais
+        all_metrics = [r['metrics'] for r in results_sorted if r.get('metrics')]
+        
+        summary = {
+            'total_symbols_tested': len(results_sorted),
+            'avg_return': round(np.mean([m['total_return'] for m in all_metrics]), 2) if all_metrics else 0,
+            'avg_win_rate': round(np.mean([m['win_rate'] for m in all_metrics]), 2) if all_metrics else 0,
+            'total_trades': sum(m['total_trades'] for m in all_metrics),
+            'best_performer': results_sorted[0]['symbol'] if results_sorted else None,
+            'worst_performer': results_sorted[-1]['symbol'] if results_sorted else None
+        }
+        
+        return {
+            'status': 'success',
+            'strategy': 'Wave3 Daily (Simplificado)',
+            'config': {
+                'ema_long': ema_long,
+                'ema_short': ema_short,
+                'risk_percent': risk_percent,
+                'reward_ratio': reward_ratio,
+                'period': {'start': start_date, 'end': end_date},
+                'initial_capital': initial_capital
+            },
+            'summary': summary,
+            'results': results_sorted
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Erro em backtest_wave3_daily_multi: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

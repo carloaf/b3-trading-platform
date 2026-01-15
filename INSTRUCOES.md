@@ -34,6 +34,12 @@
 4. **`macd_crossover`** - MACD + Signal + Volume
 5. **`rsi_divergence`** - RSI Divergence com 4 padrões (bullish, bearish, hidden_bullish, hidden_bearish)
 6. **`dynamic_position_sizing`** - Kelly Criterion com ajuste ATR
+7. **`wave3`** ⭐ **NOVO** - André Moraes Trend Following Multi-Timeframe
+   - Contexto Diário: MME 72 + MME 17
+   - Gatilho 60min: Onda 3 de Elliott
+   - Regra dos 17 candles
+   - Risk:Reward 1:3
+   - Win Rate alvo: 50-52%
 
 ### 🏗️ Arquitetura de Serviços
 
