@@ -24,6 +24,8 @@ from .ml.feature_engineer import FeatureEngineer
 from .ml.signal_classifier import SignalClassifier
 from .ml.ml_enhanced_strategy import MLEnhancedStrategy
 from .ml.anomaly_detector import AnomalyDetector
+from .ml.hyperparameter_tuner import HyperparameterTuner
+from .ml.ml_paper_trader import MLPaperTrader
 
 
 # ============================================
@@ -887,6 +889,7 @@ async def walk_forward_optimization(
 # ============================================
 
 paper_manager = PaperTradingManager(settings.INITIAL_CAPITAL)
+ml_paper_trader: Optional[MLPaperTrader] = None
 
 
 @app.get("/api/paper/status")
@@ -1858,6 +1861,209 @@ async def optimize_hyperparameters(request: HyperparameterOptimizationRequest):
     except Exception as e:
         logger.error(f"Erro na otimização: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro na otimização: {str(e)}")
+
+
+# ============================================
+# ML PAPER TRADING ENDPOINTS
+# ============================================
+
+class MLPaperTraderRequest(BaseModel):
+    """Request para iniciar ML Paper Trader."""
+    symbol: str = Field(..., description="Símbolo do ativo (ex: PETR4)")
+    timeframe: str = Field(default="5m", description="Timeframe ('1m', '5m', '15m', '1h', '1d')")
+    model_path: str = Field(..., description="Caminho do modelo ML (ex: models/petr4_rf.pkl)")
+    strategy: str = Field(default="mean_reversion", description="Estratégia base")
+    strategy_params: Dict = Field(default_factory=dict, description="Parâmetros da estratégia")
+    confidence_threshold: float = Field(default=0.65, ge=0, le=1, description="Threshold ML")
+    max_position_pct: float = Field(default=0.2, ge=0.01, le=1, description="% máxima por posição")
+    check_interval: int = Field(default=60, ge=10, le=3600, description="Intervalo de verificação (s)")
+    enable_anomaly_filter: bool = Field(default=True, description="Ativar filtro de anomalias")
+
+
+@app.post("/api/ml/paper/start", tags=["ML Paper Trading"], summary="🤖 Iniciar ML Paper Trader")
+async def start_ml_paper_trader(request: MLPaperTraderRequest):
+    """
+    Inicia paper trading automatizado com Machine Learning.
+    
+    O sistema irá:
+    1. Monitorar preços no intervalo definido
+    2. Gerar sinais com estratégia base
+    3. Filtrar sinais com ML (apenas alta confiança)
+    4. Detectar anomalias no mercado
+    5. Executar trades automaticamente
+    6. Gerenciar stop loss e take profit
+    
+    Exemplo:
+    ```bash
+    curl -X POST 'http://localhost:3008/api/ml/paper/start' \\
+      -H 'Content-Type: application/json' \\
+      -d '{
+        "symbol": "PETR4",
+        "timeframe": "5m",
+        "model_path": "models/petr4_rf.pkl",
+        "confidence_threshold": 0.70,
+        "max_position_pct": 0.2,
+        "check_interval": 60
+      }'
+    ```
+    """
+    global ml_paper_trader
+    
+    try:
+        if ml_paper_trader and ml_paper_trader.is_running:
+            raise HTTPException(
+                status_code=400,
+                detail="ML Paper Trader já está rodando. Pare primeiro com /api/ml/paper/stop"
+            )
+        
+        # Criar ML Paper Trader
+        ml_paper_trader = MLPaperTrader(
+            paper_manager=paper_manager,
+            model_path=f"/app/{request.model_path}",
+            strategy_name=request.strategy,
+            strategy_params=request.strategy_params,
+            confidence_threshold=request.confidence_threshold,
+            max_position_size_pct=request.max_position_pct,
+            check_interval=request.check_interval,
+            enable_anomaly_filter=request.enable_anomaly_filter
+        )
+        
+        # Carregar modelo
+        if not ml_paper_trader.load_model():
+            raise HTTPException(status_code=404, detail="Erro ao carregar modelo ML")
+        
+        # Iniciar paper manager se não estiver rodando
+        if not paper_manager.is_running:
+            paper_manager.start()
+        
+        ml_paper_trader.is_running = True
+        
+        logger.info(f"🤖 ML Paper Trader iniciado: {request.symbol} ({request.timeframe})")
+        
+        return {
+            "status": "success",
+            "message": "ML Paper Trader iniciado",
+            "config": {
+                "symbol": request.symbol,
+                "timeframe": request.timeframe,
+                "model_path": request.model_path,
+                "strategy": request.strategy,
+                "confidence_threshold": request.confidence_threshold,
+                "check_interval": request.check_interval
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao iniciar ML Paper Trader: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/ml/paper/stop", tags=["ML Paper Trading"], summary="⏹️ Parar ML Paper Trader")
+async def stop_ml_paper_trader():
+    """
+    Para o ML Paper Trader.
+    
+    Exemplo:
+    ```bash
+    curl -X POST 'http://localhost:3008/api/ml/paper/stop'
+    ```
+    """
+    global ml_paper_trader
+    
+    if not ml_paper_trader:
+        raise HTTPException(status_code=400, detail="ML Paper Trader não foi iniciado")
+    
+    if not ml_paper_trader.is_running:
+        raise HTTPException(status_code=400, detail="ML Paper Trader não está rodando")
+    
+    ml_paper_trader.is_running = False
+    
+    logger.info("⏹️ ML Paper Trader parado")
+    
+    return {
+        "status": "success",
+        "message": "ML Paper Trader parado",
+        "stats": ml_paper_trader.get_stats()
+    }
+
+
+@app.get("/api/ml/paper/status", tags=["ML Paper Trading"], summary="📊 Status ML Paper Trader")
+async def ml_paper_trader_status():
+    """
+    Retorna status do ML Paper Trader.
+    
+    Inclui:
+    - Estado (rodando/parado)
+    - Estatísticas de sinais (gerados/aceitos/rejeitados)
+    - Taxa de aceitação
+    - Anomalias detectadas
+    - Performance do paper trading
+    - Últimas decisões
+    
+    Exemplo:
+    ```bash
+    curl 'http://localhost:3008/api/ml/paper/status'
+    ```
+    """
+    if not ml_paper_trader:
+        return {
+            "status": "not_initialized",
+            "message": "ML Paper Trader não foi iniciado"
+        }
+    
+    return ml_paper_trader.get_stats()
+
+
+@app.post("/api/ml/paper/check", tags=["ML Paper Trading"], summary="🔍 Verificar Sinal Manualmente")
+async def check_ml_signal_manual(
+    symbol: str = Query(..., description="Símbolo"),
+    timeframe: str = Query(default="5m", description="Timeframe")
+):
+    """
+    Verifica manualmente se há sinal ML no momento.
+    
+    Útil para testar sem executar trades.
+    
+    Exemplo:
+    ```bash
+    curl 'http://localhost:3008/api/ml/paper/check?symbol=PETR4&timeframe=5m'
+    ```
+    """
+    if not ml_paper_trader:
+        raise HTTPException(status_code=400, detail="ML Paper Trader não inicializado")
+    
+    try:
+        # Buscar dados recentes
+        df = await ml_paper_trader.fetch_recent_data(symbol, timeframe, 200, ts_pool)
+        
+        if df is None or len(df) < 50:
+            raise HTTPException(status_code=404, detail="Dados insuficientes")
+        
+        current_price = float(df['close'].iloc[-1])
+        
+        # Verificar anomalias
+        anomaly_check = await ml_paper_trader.check_anomalies(df)
+        
+        # Gerar sinal
+        signal_data = await ml_paper_trader.generate_ml_signal(df, current_price)
+        
+        return {
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "current_price": current_price,
+            "timestamp": datetime.now().isoformat(),
+            "anomaly_check": anomaly_check,
+            "signal": signal_data if signal_data else None,
+            "recommendation": "EXECUTE" if (signal_data and anomaly_check.get('is_safe')) else "WAIT"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao verificar sinal: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================

@@ -3,7 +3,7 @@ Machine Learning Module
 B3 Trading Platform
 
 Módulo de ML para Feature Engineering, Signal Classification, Anomaly Detection,
-Hyperparameter Tuning e Performance Analytics.
+Hyperparameter Tuning, Performance Analytics e ML Paper Trading.
 """
 
 from .feature_engineer import FeatureEngineer
@@ -12,6 +12,7 @@ from .ml_enhanced_strategy import MLEnhancedStrategy
 from .anomaly_detector import AnomalyDetector
 from .hyperparameter_tuner import HyperparameterTuner
 from .performance_analytics import PerformanceAnalytics
+from .ml_paper_trader import MLPaperTrader
 
 __all__ = [
     "FeatureEngineer",
@@ -20,5 +21,6 @@ __all__ = [
     "MLEnhancedStrategy",
     "AnomalyDetector",
     "HyperparameterTuner",
-    "PerformanceAnalytics"
+    "PerformanceAnalytics",
+    "MLPaperTrader"
 ]
