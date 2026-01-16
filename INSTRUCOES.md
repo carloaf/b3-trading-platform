@@ -1,8 +1,8 @@
 # 📋 INSTRUÇÕES DE DESENVOLVIMENTO - B3 Trading Platform
 
 > **Data de Criação:** 12 de Janeiro de 2026  
-> **Última Atualização:** 13 de Janeiro de 2026  
-> **Status:** Em Desenvolvimento
+> **Última Atualização:** 16 de Janeiro de 2026  
+> **Status:** Em Desenvolvimento - FASE 4 (Machine Learning)
 
 ---
 
@@ -151,50 +151,263 @@
 
 ---
 
-  ?}}}}+
-- [ ] **PASSO 11:** Feature Engineering; pj
-  - Feature selection
+### FASE 4: Machine Learning Integration
 
-- [ ] **PASSO 12:** Modelo de Classificação de Sinais
-  - Random Forest / XGBoost para filtrar sinais
-  - Treinamento com dados históricos
-  - Integração com estratégias existentes
+- [x] **PASSO 11 v1:** Feature Engineering Básico ✅
+  - ✅ Indicadores técnicos (EMAs, RSI, MACD, ATR, etc.)
+  - ✅ Feature selection básica
+  - Arquivo: `services/execution-engine/src/ml/feature_engineering.py`
 
-- [ ] **PASSO 13:** Detecção de Anomalias
-  - Isolation Forest para detectar condições anormais
+- [x] **PASSO 11 v2:** Feature Engineering Avançado ✅ **16/01/2026**
+  - ✅ 114+ features multi-categoria implementadas
+  - ✅ Dados COTAHIST B3: 43 ativos × 250 dias = 10,316 registros
+  - ✅ Dados sintéticos intraday: 330k+ registros (15min, 60min, 4h)
+  - ✅ Total: 340,428 registros prontos para ML
+  - Arquivos: `scripts/cotahist_parser.py`, `scripts/generate_intraday.py`
+
+- [x] **PASSO 12 v2:** ML + Wave3 + SMOTE Integration ✅ **16/01/2026**
+  - ✅ **Feature Engineering v2: 114+ features**
+    * Trend (30): EMAs, SMAs, MACD, ADX, DI+/DI-
+    * Momentum (25): RSI, Stochastic, ROC, Williams %R, CCI, MFI
+    * Volatility (20): ATR, Bollinger Bands, Keltner, Historical Vol
+    * Volume (15): OBV, VWAP, A/D, CMF, Volume ratios
+    * Price Action (12): Body/Shadow ratios, Gaps, Ranges
+    * Market Regime (12): Trend detection, Vol regime, Extremes
+  
+  - ✅ **SMOTE Class Balancing**
+    * Antes: 35.24% positives (74/210 samples)
+    * Depois: 50.00% balanced (109/109 samples)
+    * Biblioteca: imbalanced-learn 0.14.1
+  
+  - ✅ **Random Forest Performance**
+    * **Accuracy: 80.95%** ⭐⭐⭐⭐
+    * **Precision: 70.59%** ⭐⭐⭐
+    * **Recall: 80.00%** ⭐⭐⭐⭐
+    * **F1-Score: 75.00%** ⭐⭐⭐⭐
+    * **ROC-AUC: 82.22%** ⭐⭐⭐⭐⭐ (Excelente!)
+    * Treinamento: ITUB4, MGLU3, VALE3, PETR4, BBDC4
+    * Samples: 210 total (168 train + 42 test)
+    * Modelo salvo: `/app/models/ml_wave3_v2.pkl`
+  
+  - ✅ **Wave3MLStrategy**
+    * Workflow: Wave3 → ML Filter → Trade
+    * Confidence threshold: 0.6 (default) ou 0.7 (conservador)
+    * Filtra falsos positivos do Wave3
+    * Meta: Win Rate 50% → 55-60%
+  
+  - ✅ **Top Features Importantes**
+    1. Historical Volatility (30d) - 2.26%
+    2. O/C Range - 1.46%
+    3. Bollinger Band Width - 1.42%
+    💡 Insight: VOLATILIDADE é o preditor mais importante!
+  
+  - Arquivos: 
+    * `services/execution-engine/src/ml/ml_wave3_integration_v2.py` (650 linhas)
+    * `services/execution-engine/src/strategies/wave3_ml_strategy.py` (450 linhas)
+    * `docs/PASSO_12_V2.md` (documentação completa)
+  - Commit: 2d19769 (dev branch)
+
+- [ ] **PASSO 13:** Walk-Forward Optimization para ML 🔄 **PRÓXIMO**
+  - Implementar Walk-Forward com retreino periódico
+  - Dividir dataset em 4 folds (3 meses train + 1 mês test)
+  - Retreinar modelo a cada fold
+  - Validar performance out-of-sample
+  - Gráficos de equity curve
+  - Métricas acumuladas por fold
+  - Comparação: ML estático vs ML walk-forward
+  - **Objetivo:** Evitar overfitting, modelo adaptativo ao tempo
+  
+  **Implementação Planejada:**
+  ```python
+  # walk_forward_ml.py
+  class MLWalkForward:
+      def __init__(self, folds=4, train_months=3, test_months=1):
+          self.folds = folds
+          self.train_months = train_months
+          self.test_months = test_months
+      
+      def run_walk_forward(self, symbols, start_date, end_date):
+          # Dividir timeline em folds
+          # Para cada fold:
+          #   - Treinar modelo com train window
+          #   - Testar em test window
+          #   - Salvar métricas e modelo
+          # Consolidar resultados
+          pass
+  ```
+  
+  **Métricas a Calcular:**
+  - Accuracy média por fold
+  - ROC-AUC médio
+  - Win Rate por fold
+  - Sharpe Ratio por fold
+  - Drawdown máximo
+  - Consistência entre folds (desvio padrão)
+  
+  **Endpoint:** `POST /api/ml/walk-forward`
+  
+  **Arquivo a Criar:** `services/execution-engine/src/ml/walk_forward_ml.py`
+
+- [ ] **PASSO 14:** API REST Endpoints para ML
+  - Criar endpoints RESTful para ML
+  - Documentação Swagger/OpenAPI
+  - Autenticação e rate limiting
+  - Validação de inputs
+  - Error handling robusto
+  
+  **Endpoints a Implementar:**
+  
+  1. **POST /api/ml/train**
+     - Treinar modelo ML com símbolos e período customizados
+     - Body: `{symbols, model_type, use_smote, test_size}`
+     - Response: Métricas de performance + model_id
+  
+  2. **POST /api/ml/predict**
+     - Predição ML para símbolo específico
+     - Body: `{symbol, date, model_id}`
+     - Response: `{prediction, confidence, features_used}`
+  
+  3. **POST /api/backtest/wave3-ml**
+     - Backtest comparativo: Wave3 puro vs Wave3+ML
+     - Body: `{symbols, start_date, end_date, confidence_thresholds}`
+     - Response: Métricas lado a lado, gráficos
+  
+  4. **GET /api/ml/model-info**
+     - Informações do modelo treinado
+     - Response: `{model_type, features, metrics, trained_on, timestamp}`
+  
+  5. **GET /api/ml/feature-importance**
+     - Top N features mais importantes
+     - Query: `?top=20`
+     - Response: Lista de features com importâncias
+  
+  6. **POST /api/ml/retrain**
+     - Retreinar modelo com novos dados
+     - Body: `{model_id, symbols, incremental}`
+     - Response: Novas métricas
+  
+  7. **POST /api/ml/walk-forward**
+     - Executar Walk-Forward optimization
+     - Body: `{symbols, folds, train_months, test_months}`
+     - Response: Métricas por fold + gráficos
+  
+  8. **GET /api/ml/models**
+     - Listar todos os modelos treinados
+     - Response: Lista com model_id, timestamp, metrics
+  
+  **Autenticação:**
+  - JWT tokens
+  - API keys para clientes externos
+  
+  **Rate Limiting:**
+  - `/api/ml/train`: 10 requests/hour
+  - `/api/ml/predict`: 1000 requests/hour
+  - Outros endpoints: 100 requests/minute
+  
+  **Arquivo a Criar:** `services/api-gateway/src/routes/ml.js`
+
+- [ ] **PASSO 15:** Paper Trading com ML
+  - Integrar ML com paper trading existente
+  - Testar Wave3+ML em tempo real (dados simulados)
+  - Dashboard com sinais ML
+  - Alertas quando confidence > threshold
+  - Comparação em tempo real: Wave3 vs Wave3+ML
+  
+  **Implementação Planejada:**
+  ```python
+  # paper_trading_ml.py
+  class MLPaperTrader:
+      def __init__(self, strategy='wave3_ml', confidence_threshold=0.6):
+          self.strategy = Wave3MLStrategy(confidence_threshold)
+          self.positions = []
+          self.trades_history = []
+      
+      async def run_paper_trading(self, symbols):
+          while True:
+              for symbol in symbols:
+                  # Buscar dados atualizados
+                  df = await fetch_latest_data(symbol)
+                  
+                  # Gerar sinal ML
+                  signal = self.strategy.generate_signal(df)
+                  
+                  # Executar trade simulado
+                  if signal['action'] == 'buy':
+                      self.open_position(symbol, signal)
+                  elif signal['action'] == 'sell':
+                      self.close_position(symbol)
+                  
+                  # Atualizar métricas
+                  self.update_metrics()
+              
+              await asyncio.sleep(60)  # 1 minuto
+  ```
+  
+  **Dashboard Features:**
+  - Posições abertas (Wave3 vs Wave3+ML)
+  - Equity curve em tempo real
+  - Win rate acumulado
+  - Número de trades filtrados pelo ML
+  - Confidence scores dos últimos sinais
+  - Alertas visuais para high-confidence signals
+  
+  **Alertas:**
+  - Telegram: "🚀 HIGH CONFIDENCE BUY: ITUB4 @ R$32.50 (confidence: 0.85)"
+  - Discord webhook: Embed com gráfico + métricas
+  - Email: Resumo diário de performance
+  
+  **Métricas a Monitorar:**
+  - Win Rate: Wave3 puro vs Wave3+ML
+  - Sharpe Ratio comparativo
+  - Número de trades: redução esperada
+  - Average confidence dos trades executados
+  - False positive rate (ML filtering effectiveness)
+  
+  **Endpoint:** `GET /api/paper/ml-status`
+  
+  **Arquivo a Criar:** `services/execution-engine/src/paper_trading_ml.py`
+
+- [ ] **PASSO 16:** Detecção de Anomalias com Isolation Forest
+  - Detectar condições anormais de mercado
   - Alerta automático em situações atípicas
+  - Integração com estratégias para pausar trading
 
 ---
 
 ### FASE 5: Alertas e Notificações
 
-- [ ] **PASSO 14:** Integração Telegram Bot
+- [ ] **PASSO 17:** Integração Telegram Bot
   - Criar bot no @BotFather
   - Implementar notificações de sinais
   - Comandos de status via chat
+  - Alertas de high-confidence ML signals
 
-- [ ] **PASSO 15:** Integração Discord Webhook
+- [ ] **PASSO 18:** Integração Discord Webhook
   - Criar webhook no Discord
   - Notificações em canal dedicado
+  - Embeds com gráficos e métricas
 
 ---
 
 ### FASE 6: Produção e Monitoramento
 
-- [ ] **PASSO 16:** Configurar Alertas Grafana
+- [ ] **PASSO 19:** Configurar Alertas Grafana
   - Alertas de drawdown > 5%
   - Alertas de serviço degradado
   - Notificação por email/Telegram
+  - Dashboard ML metrics
 
-- [ ] **PASSO 17:** Otimização de Performance
+- [ ] **PASSO 20:** Otimização de Performance
   - Cache agressivo no Redis
   - Compressão de dados históricos
   - Rate limiting na API
+  - Connection pooling
 
-- [ ] **PASSO 18:** Documentação Final
+- [ ] **PASSO 21:** Documentação Final
   - API documentation com Swagger
   - Guia de deployment
   - Runbook operacional
+  - ML model documentation
 
 ---
 
@@ -293,4 +506,5 @@ git checkout dev
 
 ---
 
-*Atualizado em: 12 de Janeiro de 2026*
+*Última atualização: 16 de Janeiro de 2026*  
+*Status Atual: PASSO 12 v2 COMPLETO ✅ | Próximo: PASSO 13 (Walk-Forward ML)*
