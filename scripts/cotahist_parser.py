@@ -59,11 +59,49 @@ class COTAHISTParser:
     # Códigos BDI de interesse (02 = lote padrão)
     BDI_CODES = {'02'}
     
-    # Símbolos de interesse (principais ações B3)
+    # Símbolos de interesse (principais ações B3) - EXPANDIDO PARA 40+
     DEFAULT_SYMBOLS = {
-        'PETR4', 'VALE3', 'ITUB4', 'BBDC4', 'ABEV3',
-        'B3SA3', 'MGLU3', 'WEGE3', 'RENT3', 'SUZB3',
-        'PETR3', 'VALE5', 'ITUB3', 'BBDC3', 'BBAS3'
+        # Bancos (6)
+        'ITUB4', 'BBDC4', 'BBAS3', 'SANB11', 'ITUB3', 'BBDC3',
+        
+        # Energia (5)
+        'PETR4', 'PETR3', 'PRIO3', 'RRRP3', 'CSAN3',
+        
+        # Mineração/Siderurgia (5)
+        'VALE3', 'CSNA3', 'GGBR4', 'USIM5', 'GOAU4',
+        
+        # Varejo (6)
+        'MGLU3', 'AMER3', 'LREN3', 'PCAR3', 'VIIA3', 'ARZZ3',
+        
+        # Consumo (4)
+        'ABEV3', 'JBSS3', 'BEEF3', 'SMTO3',
+        
+        # Utilities (5)
+        'ELET3', 'ELET6', 'CPLE6', 'CMIG4', 'TAEE11',
+        
+        # Financeiro/Bolsa (2)
+        'B3SA3', 'BBSE3',
+        
+        # Industrial (4)
+        'WEGE3', 'RAIL3', 'EMBR3', 'AZUL4',
+        
+        # Telecom (2)
+        'VIVT3', 'TIMS3',
+        
+        # Imobiliário (1)
+        'MULT3',
+        
+        # Saúde (2)
+        'RDOR3', 'HAPV3',
+        
+        # Logística (2)
+        'RENT3', 'RADL3',
+        
+        # Tecnologia (1)
+        'TOTS3',
+        
+        # Papel/Celulose (2)
+        'SUZB3', 'KLBN11'
     }
     
     def __init__(self, filepath: str):
