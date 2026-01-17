@@ -1,9 +1,9 @@
 # 📋 INSTRUÇÕES DE DESENVOLVIMENTO - B3 Trading Platform
 
 > **Data de Criação:** 12 de Janeiro de 2026  
-> **Última Atualização:** 16 de Janeiro de 2026  
+> **Última Atualização:** 17 de Janeiro de 2026  
 > **Status:** Em Desenvolvimento - FASE 4 (Machine Learning)  
-> **PASSO 13 COMPLETO ✅** | Próximo: PASSO 14 (API REST para ML)
+> **PASSO 13 COMPLETO ✅ | PASSO 13.5 COMPLETO ✅** | Próximo: PASSO 14 (API REST)
 
 ---
 
@@ -268,6 +268,74 @@
   
   **Endpoint:** `POST /api/ml/walk-forward`
   
+  
+  - Commit: [pendente]
+
+- [x] **PASSO 13.5:** Validação Wave3 em B3 e Crypto ✅ **COMPLETO - 17/01/2026**
+  
+  **Objetivo:** Testar estratégia Wave3 em ambos mercados antes de prosseguir para API
+  
+  **Testes Realizados:**
+  
+  1. **Wave3 Pura - Crypto (Original)**
+     - Config: EMA 72/17, 17 candles, 6% risk, 3:1 R:R
+     - Período: 342 dias (2025-01-16 → 2025-12-23)
+     - Resultado: **❌ REPROVADA**
+       * Win Rate: 35.62% (vs 50% esperado)
+       * Return: -0.97%
+       * Sharpe: -0.06 (negativo)
+     - Arquivo: `backtest_wave3_crypto.py`
+  
+  2. **Wave3 Otimizada - Crypto**
+     - Config: EMA 50/12, 10 candles, 8% risk, 2.5:1 R:R
+     - Ajustes: EMAs rápidas, stops largos, zona 1.5%
+     - Resultado: **❌ PIOR AINDA**
+       * Win Rate: 29.16% (vs 35.62% original)
+       * Return: -1.61%
+       * XRP/SOL < 20% win (desastroso)
+     - Arquivo: `backtest_wave3_optimized.py`
+  
+  3. **Wave3 Original - B3 Stocks** ⭐⭐⭐
+     - Config: EMA 72/17, 17 candles, 6% risk, 3:1 R:R (ORIGINAL)
+     - Período: 729 dias (2024-01-02 → 2025-12-30)
+     - Resultado: **✅ VALIDADA**
+       * Win Rate: 36.00%
+       * Return: **+7.87%** ✅
+       * Sharpe: **+0.17** ✅
+       * **PETR4: 70% win, +32.36%, Sharpe 0.54** ⭐⭐⭐
+       * **VALE3: 60% win, +8.01%, Sharpe 0.36** ✅
+       * **ITUB4: 50% win** (exatamente como documentado!)
+     - Arquivo: `backtest_wave3_optimized.py`
+  
+  4. **Wave3+ML Hybrid** (TENTATIVA)
+     - Objetivo: Combinar Wave3 + ML filter (confidence 0.6/0.7)
+     - Status: **❌ BLOQUEADO**
+       * Erro: Feature incompatibility (450 vs 90 features)
+       * Modelo Walk-Forward usa FeatureEngineerV2 diferente
+       * Pickle serialization issue
+     - Arquivo: `backtest_wave3_ml.py`, `test_wave3_ml_simple.py`
+  
+  **Conclusões:**
+  
+  | Estratégia | B3 | Crypto | Recomendação |
+  |------------|-----|--------|---------------|
+  | **Wave3 Pura** | 36% win, +7.87% ✅ | 29% win, -1.61% ❌ | **B3 APENAS** |
+  | **ML Puro** | 89% acc ⭐ | 81% acc ✅ | **AMBOS** |
+  | **Wave3+ML** | ⏳ Pendente | ⏳ Pendente | Aguardar fix |
+  
+  **Decisões para PASSO 14:**
+  - ✅ API B3: Usar Wave3 pura (validada, 36% win)
+  - ✅ API Crypto: Usar ML puro (81% accuracy)
+  - ⏳ Wave3+ML: Implementar após fix de features (futuro)
+  - 🎯 Prioridade B3: PETR4, VALE3, ITUB4 (melhores performers)
+  
+  **Problemas Encontrados:**
+  - Feature engineering incompatível entre módulos
+  - Pickle serialization com classes customizadas
+  - Wave3 é market-specific (5-day vs 24/7)
+  
+  **Documentação Completa:**
+  - `docs/WAVE3_VALIDATION_REPORT.md` (análise detalhada)
   
   - Commit: [pendente]
 
