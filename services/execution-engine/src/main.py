@@ -29,6 +29,9 @@ from .ml.anomaly_detector import AnomalyDetector
 from .ml.hyperparameter_tuner import HyperparameterTuner
 from .ml.ml_paper_trader import MLPaperTrader
 
+# Import ML API endpoints (PASSO 14)
+from .api_ml_endpoints import router as ml_router
+
 
 # ============================================
 # CONFIGURATION
@@ -152,6 +155,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ============================================
+# REGISTER ROUTERS (PASSO 14)
+# ============================================
+
+app.include_router(ml_router)
+logger.info("✅ ML API endpoints registered at /api/ml/*")
 
 
 # ============================================
