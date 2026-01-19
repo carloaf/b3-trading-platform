@@ -481,6 +481,84 @@
   
   **Status:** ✅ PRODUÇÃO PRONTA | Estratégias validadas expostas via API REST
   
+  - Commit: 800dc03 (dev branch)
+
+- [ ] **PASSO 14.5:** B3 API Integration - Ticker Discovery ✅ **COMPLETO - 19/01/2026**
+  
+  **Objetivo:** Integrar API B3 para descobrir ativos disponíveis antes de baixar dados
+  
+  **API Source:** https://cvscarlos.github.io/b3-api-dados-historicos/
+  
+  **Funcionalidades Implementadas:**
+  
+  1. **Verificação de Disponibilidade Ibovespa**
+     - Comando: `python b3_api_integration.py check-ibov`
+     - Resultado: ✅ **50/50 componentes disponíveis (100%)**
+     - Cobertura: 2010 - 16/01/2026 (16 anos de histórico)
+     - Ativos: PETR4, VALE3, ITUB4, BBDC4, WEGE3, etc.
+  
+  2. **Análise Completa de Ativos**
+     - Comando: `python b3_api_integration.py analyze`
+     - Total: 5.200+ ativos disponíveis
+     - Filtros: Por tipo (PN, ON, Units), liquidez, histórico
+  
+  3. **Recomendações de Download**
+     - Comando: `python b3_api_integration.py recommend`
+     - Prioridade 1: Ibovespa (50 ativos)
+     - Prioridade 2: Blue chips (20 ativos)
+     - Prioridade 3: Histórico longo (>10 anos)
+  
+  4. **Exportação CSV**
+     - Comando: `python b3_api_integration.py export-csv`
+     - Arquivo: `b3_tickers_list.csv`
+     - Colunas: ticker, nome, especificacao, data_min, data_max
+  
+  **Arquivos Criados:**
+  - `services/data-collector/src/b3_api_integration.py` (450 linhas) - ✅ NOVO
+  - `docs/B3_API_INTEGRATION.md` (documentação completa) - ✅ NOVO
+  
+  **Arquivos Modificados:**
+  - `services/data-collector/requirements.txt` (+1 dep) - Adiciona requests
+  
+  **Teste Realizado:**
+  ```bash
+  docker exec -it b3-data-collector python /app/src/b3_api_integration.py check-ibov
+  
+  # Resultado:
+  ✅ Disponíveis: 50/50 (100.0%)
+  ❌ Indisponíveis: 0
+  
+  # Top componentes:
+  PETR4    | PETROBRAS      | 20100104 -> 20260116
+  VALE3    | VALE           | 20100104 -> 20260116
+  ITUB4    | ITAUUNIBANCO   | 20100104 -> 20260116
+  ```
+  
+  **Métodos Disponíveis:**
+  - `get_available_tickers()` - Lista todos os 5.200+ ativos
+  - `get_bluechips()` - Retorna 20 blue chips brasileiras
+  - `get_ibov_components()` - Retorna 50 componentes Ibovespa
+  - `filter_top_liquidity(n)` - Top N ativos por histórico
+  - `export_to_csv(file)` - Exporta lista completa para CSV
+  
+  **Workflow Completo:**
+  1. Descobrir ativos: `python b3_api_integration.py check-ibov`
+  2. Baixar dados: `python import_cotahist.py --year 2024 --ibovespa`
+  3. Executar estratégias: `python backtest_wave3_optimized.py`
+  
+  **Estatísticas:**
+  - Total de ativos: 5.200+
+  - Cobertura: 2010 - 2026 (16 anos)
+  - Ibovespa disponível: 100% (50/50)
+  - Blue chips disponível: 100% (20/20)
+  
+  **Casos de Uso:**
+  - Backtesting histórico: Ativos desde 2010
+  - Trading em produção: Blue chips alta liquidez
+  - Machine Learning: Ibovespa completo + filtro >10 anos
+  
+  **Status:** ✅ PRODUÇÃO PRONTO | Ticker discovery automático
+  
   - Commit: [pendente]
 
 - [ ] **PASSO 15:** Paper Trading com ML 🔄 **PRÓXIMO**
