@@ -19,15 +19,19 @@ Sistema de trading automatizado para o mercado brasileiro B3, focado em Mini Ín
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
-│  │ MetaTrader5 │    │   BRAPI     │    │  Profit     │     │
-│  │  (Futuros)  │    │  (Ações)    │    │  Chart API  │     │
+│  │ MetaTrader5 │    │   BRAPI     │    │ ProfitChart │     │
+│  │  (Futuros)  │    │  (Ações)    │    │  (B3 Data)  │     │
 │  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘     │
 │         │                  │                  │             │
+│         │                  │       CSV Export │             │
 │         └──────────────────┼──────────────────┘             │
 │                            ▼                                │
 │                 ┌─────────────────────┐                     │
 │                 │   Data Collector    │                     │
 │                 │   (Python/FastAPI)  │                     │
+│                 │  • MT5 Integration  │                     │
+│                 │  • BRAPI Integration│                     │
+│                 │  • Profit CSV Import│                     │
 │                 └──────────┬──────────┘                     │
 │                            │                                │
 │         ┌──────────────────┼──────────────────┐            │
@@ -59,8 +63,8 @@ Sistema de trading automatizado para o mercado brasileiro B3, focado em Mini Ín
 ### Pré-requisitos
 - Docker & Docker Compose v2
 - Python 3.11+
-- MetaTrader 5 (para futuros)
-- Conta em corretora brasileira (XP, Clear, etc.)
+- MetaTrader 5 (para futuros) **ou** ProfitChart (para ações B3)
+- Conta em corretora brasileira (XP, Clear, Rico, etc.)
 
 ### Instalação
 
@@ -158,15 +162,27 @@ make test             # Rodar testes
 make db-migrate       # Aplicar migrações
 make db-seed          # Popular dados iniciais
 
-# Dados
+# Dados - MetaTrader 5 / BRAPI
 make download-hist    # Baixar dados históricos
 make health-check     # Verificar saúde dos dados
+
+# Dados - ProfitChart (Nelogica)
+# 1. Exportar CSV do ProfitChart (veja docs/PROFIT_EXPORT_GUIDE.md)
+# 2. Importar para TimescaleDB:
+./scripts/import_profit_batch.sh /tmp/profitpro_export daily
 
 # Trading
 make backtest         # Rodar backtest
 make paper-start      # Iniciar paper trading
 make paper-stop       # Parar paper trading
 ```
+
+## 📚 Documentação Adicional
+
+- [PLANO_IMPLEMENTACAO.md](PLANO_IMPLEMENTACAO.md) - Roadmap detalhado
+- [docs/PROFITPRO_INTEGRATION.md](docs/PROFITPRO_INTEGRATION.md) - Integração ProfitChart
+- [docs/PROFIT_EXPORT_GUIDE.md](docs/PROFIT_EXPORT_GUIDE.md) - Guia de exportação CSV
+- [docs/GOOGLE_FINANCE_INTEGRATION.md](docs/GOOGLE_FINANCE_INTEGRATION.md) - Alternativas de dados
 
 ## ⚠️ Disclaimer
 

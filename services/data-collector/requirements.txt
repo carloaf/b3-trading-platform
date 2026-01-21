@@ -20,6 +20,9 @@ httpx==0.26.0
 aiohttp==3.9.1
 requests==2.31.0  # B3 API Integration
 
+# Financial Data APIs
+yfinance==0.2.38  # Google/Yahoo Finance for intraday data
+
 # Data
 pandas==2.1.4
 numpy==1.26.3
