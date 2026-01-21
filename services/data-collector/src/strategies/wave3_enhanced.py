@@ -90,19 +90,19 @@ class Wave3Enhanced:
                  trailing_atr_multiplier: float = 2.0,
                  
                  # Filtros
-                 volume_multiplier: float = 1.1,  # ✅ OTIMIZADO: era 1.3
+                 volume_multiplier: float = 1.05,  # v2.2: Reduzido de 1.1x para 1.05x
                  min_atr_percentile: float = 30,
                  use_rsi_filter: bool = True,
                  use_macd_filter: bool = True,
                  use_adx_filter: bool = True,
                  min_adx: float = 20,
-                 min_quality_score: float = 65):  # ✅ NOVO: filtro de qualidade mínima
+                 min_quality_score: float = 70):  # v2.2: Elevado de 65 para 70
         """
         Inicializa Wave3 Enhanced
         
         Args:
             target_levels: Lista de (porcentagem, multiplicador_risco)
-                          Default: [(0.5, 1.0), (0.3, 1.5), (0.2, 2.5)]  # ✅ OTIMIZADO
+                          Default: [(0.5, 1.0), (0.3, 1.5), (0.2, 2.0)]  # v2.2 OPTIMIZED
         """
         
         self.mma_long = mma_long
@@ -112,8 +112,8 @@ class Wave3Enhanced:
         self.min_candles_daily = min_candles_daily
         self.min_candles_60min = min_candles_60min
         
-        # Alvos parciais: (% posição, R:R) - ✅ OTIMIZADO: alvos mais realistas
-        self.target_levels = target_levels or [(0.5, 1.0), (0.3, 1.5), (0.2, 2.5)]
+        # Alvos parciais: (% posição, R:R) - v2.2: T3 reduzido para 2.0:1
+        self.target_levels = target_levels or [(0.5, 1.0), (0.3, 1.5), (0.2, 2.0)]
         
         self.activate_trailing_after_rr = activate_trailing_after_rr
         self.trailing_atr_multiplier = trailing_atr_multiplier

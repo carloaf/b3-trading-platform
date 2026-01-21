@@ -1,9 +1,9 @@
 # 📋 INSTRUÇÕES DE DESENVOLVIMENTO - B3 Trading Platform
 
 > **Data de Criação:** 12 de Janeiro de 2026  
-> **Última Atualização:** 17 de Janeiro de 2026  
-> **Status:** Em Desenvolvimento - FASE 4 (Machine Learning)  
-> **PASSO 14 COMPLETO ✅** | Próximo: PASSO 15 (Paper Trading ML)
+> **Última Atualização:** 20 de Janeiro de 2026  
+> **Status:** Em Desenvolvimento - Wave3 v2.2 Fine-Tuning  
+> **Wave3 v2.1 COMPLETO ✅** | Atual: Wave3 v2.2 Optimizations
 
 ---
 
@@ -35,12 +35,22 @@
 4. **`macd_crossover`** - MACD + Signal + Volume
 5. **`rsi_divergence`** - RSI Divergence com 4 padrões (bullish, bearish, hidden_bullish, hidden_bearish)
 6. **`dynamic_position_sizing`** - Kelly Criterion com ajuste ATR
-7. **`wave3`** ⭐ **NOVO** - André Moraes Trend Following Multi-Timeframe
+7. **`wave3`** ⭐ **v2.2 OPTIMIZING** - André Moraes Trend Following Multi-Timeframe
    - Contexto Diário: MME 72 + MME 17
    - Gatilho 60min: Onda 3 de Elliott
-   - Regra dos 17 candles
-   - Risk:Reward 1:3
-   - Win Rate alvo: 50-52%
+   - Regra dos 17 candles adaptativa
+   - **v2.1 Achievements** ✅:
+     * Quality Score ≥65: +26% score médio (54→68)
+     * Alvos (1:1, 1.5:1, 2.5:1): T2 atingível!
+     * Volume 1.1x: +7pp confirmação
+     * Trailing @ 0.75:1: proteção antecipada
+     * Retorno: +0.71% (vs -1.75% antes)
+   - **v2.2 Optimizations** 🔧 (Em Progresso):
+     * Quality Score ≥70 (vs 65)
+     * Volume 1.05x (vs 1.1x)
+     * T3 @ 2.0:1 (vs 2.5:1)
+     * Backtest estendido: 2020-2025
+     * Paper trading framework: 60 dias
 
 ### 🏗️ Arquitetura de Serviços
 
