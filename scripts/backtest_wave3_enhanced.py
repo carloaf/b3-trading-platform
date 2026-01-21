@@ -255,21 +255,21 @@ async def run_enhanced_backtest(symbol: str,
     
     print(f"📊 Daily: {len(df_daily)} candles | 60min: {len(df_60min)} candles")
     
-    # Inicializa estratégia Enhanced com parâmetros OTIMIZADOS
+    # Inicializa estratégia Enhanced com parâmetros v2.2 OPTIMIZED
     strategy = Wave3Enhanced(
         mma_long=72,
         mma_short=17,
         min_candles_daily=17,
-        min_candles_60min=9,  # ✅ Mais flexível
-        target_levels=[(0.5, 1.0), (0.3, 1.5), (0.2, 2.5)],  # 🔥 OTIMIZADO: alvos realistas
-        activate_trailing_after_rr=0.75,  # 🔥 OTIMIZADO: trailing mais agressivo
-        volume_multiplier=1.1,  # 🔥 OTIMIZADO: volume menos restritivo
-        min_atr_percentile=30,  # ✅ Filtro ATR
-        use_rsi_filter=True,  # ✅ Filtro RSI
-        use_macd_filter=True,  # ✅ Filtro MACD
-        use_adx_filter=True,  # ✅ Filtro ADX
+        min_candles_60min=9,
+        target_levels=[(0.5, 1.0), (0.3, 1.5), (0.2, 2.0)],  # 🔥 v2.2: T3 @ 2.0:1
+        activate_trailing_after_rr=0.75,
+        volume_multiplier=1.05,  # 🔥 v2.2: Volume 1.05x (menos restritivo)
+        min_atr_percentile=30,
+        use_rsi_filter=True,
+        use_macd_filter=True,
+        use_adx_filter=True,
         min_adx=20,
-        min_quality_score=65  # 🔥 OTIMIZADO: aceita apenas sinais premium
+        min_quality_score=70  # 🔥 v2.2: Quality Score ≥70 (mais seletivo)
     )
     
     backtester = EnhancedBacktester(initial_capital=initial_capital)
