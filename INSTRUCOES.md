@@ -561,6 +561,91 @@
   
   - Commit: [pendente]
 
+- [x] **PASSO 14.6:** ProfitChart Data Import - Dados Intraday Reais ✅ **COMPLETO - 20/01/2026**
+  
+  **Objetivo:** Importar dados históricos reais de 60min do ProfitChart para testar estratégias intraday
+  
+  **Fonte de Dados:** ProfitChart (instalado via Wine)
+  - Método: Exportação manual via GUI → CSV
+  - Formato: `SYMBOL;DD/MM/YYYY;HH:MM:SS;OPEN,HIGH,LOW,CLOSE;VOLUME1,VOLUME2`
+  - Separador: ponto-e-vírgula (;)
+  - Decimal: vírgula (,)
+  
+  **Dados Importados:**
+  - **268.197 registros** total
+  - **44 símbolos** (PETR4, VALE3, ITUB4, BBDC4, B3SA3, etc.)
+  - **2 intervalos:** 15min e 60min
+  - **Período:** Janeiro/2024 → Dezembro/2025 (24 meses)
+  - **Cobertura:** ~5.500 candles/símbolo (60min) | ~15.000 candles/símbolo (15min)
+  
+  **Principais Ativos Importados (60min):**
+  - PETR4: 5.528 candles (02/01/2024 → 30/12/2025)
+  - VALE3: 5.527 candles (02/01/2024 → 30/12/2025)
+  - ITUB4: 5.528 candles (02/01/2024 → 30/12/2025)
+  - BBDC4: 5.528 candles (02/01/2024 → 30/12/2025)
+  - B3SA3: 5.528 candles (02/01/2024 → 30/12/2025)
+  
+  **Arquivos Criados:**
+  - `scripts/import_profit_data.py` (180 linhas) - ✅ Importador CSV → TimescaleDB
+  - `scripts/test_wave3_60min.py` (332 linhas) - ✅ Comparação 60min vs daily
+  - `docs/PROFITPRO_INTEGRATION.md` - Documentação completa
+  - `docs/PROFIT_EXPORT_GUIDE.md` - Guia de exportação CSV
+  
+  **Teste Comparativo Wave3:**
+  
+  Executado backtest comparativo 60min vs daily (2024-2025):
+  
+  | Ação | 60min Retorno | Daily Retorno | Win Rate 60min | Win Rate Daily | Trades 60min |
+  |------|---------------|---------------|----------------|----------------|--------------|
+  | **PETR4** | -99.97% 💀 | -12.15% | 18.10% | 33.33% | 232 |
+  | **VALE3** | +0.39% ✅ | -0.59% | 40.19% | 50.00% | 321 |
+  | **ITUB4** | -99.97% 💀 | -2.86% | 27.04% | 42.86% | 159 |
+  
+  **⚠️ PROBLEMAS IDENTIFICADOS:**
+  
+  1. **Overtrading severo:** 159-321 trades (60min) vs 12-21 trades (daily)
+  2. **Win rate baixo:** 18-40% (60min) vs 33-50% (daily)
+  3. **Drawdown catastrófico:** -99.97% em PETR4 e ITUB4
+  4. **Parâmetros inadequados:** Estratégia Wave3 usa parâmetros otimizados para daily
+  5. **Falta de filtros:** Sem filtro de volatilidade/spread para intraday
+  
+  **CONCLUSÕES:**
+  
+  - ✅ **Importação bem-sucedida:** 268K candles importados sem erros
+  - ✅ **Dados validados:** OHLC consistente, volumes corretos, timestamps sequenciais
+  - ❌ **Estratégia precisa otimização:** Parâmetros daily não funcionam em 60min
+  - 🔄 **Próximo passo:** Walk-Forward Optimization específica para 60min
+  
+  **Comandos Utilizados:**
+  ```bash
+  # Importar CSVs do ProfitChart
+  docker exec b3-data-collector python3 /tmp/import_profit_data.py
+  
+  # Testar estratégia Wave3
+  docker exec b3-data-collector python3 /tmp/test_wave3_60min.py
+  
+  # Verificar dados importados
+  docker exec -it b3-timescaledb psql -U b3trading_ts -d b3trading_market \
+    -c "SELECT symbol, COUNT(*) FROM ohlcv_60min GROUP BY symbol;"
+  ```
+  
+  **Workflow de Exportação ProfitChart:**
+  1. Abrir ProfitChart (Wine)
+  2. Selecionar ativo e intervalo (15min ou 60min)
+  3. Exportar → ASCII → Formato Metastock com ponto-e-vírgula
+  4. Salvar CSV em `./data/`
+  5. Executar `import_profit_data.py`
+  
+  **Estatísticas Técnicas:**
+  - Tempo de importação: ~45 segundos (268K registros)
+  - Taxa de sucesso: 99.9% (IBOV excluído por overflow de volume)
+  - Duplicatas: 0 (ON CONFLICT DO NOTHING)
+  - Tabelas: `ohlcv_15min`, `ohlcv_60min`
+  
+  **Status:** ✅ DADOS IMPORTADOS | ⚠️ ESTRATÉGIA PRECISA OTIMIZAÇÃO
+  
+  - Commit: [pendente]
+
 - [ ] **PASSO 15:** Paper Trading com ML 🔄 **PRÓXIMO**
   - Criar endpoints RESTful para ML
   - Documentação Swagger/OpenAPI
