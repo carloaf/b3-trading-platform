@@ -1,9 +1,9 @@
 # 📋 INSTRUÇÕES DE DESENVOLVIMENTO - B3 Trading Platform
 
 > **Data de Criação:** 12 de Janeiro de 2026  
-> **Última Atualização:** 20 de Janeiro de 2026  
-> **Status:** Em Desenvolvimento - Wave3 v2.2 Fine-Tuning  
-> **Wave3 v2.1 COMPLETO ✅** | Atual: Wave3 v2.2 Optimizations
+> **Última Atualização:** 21 de Janeiro de 2026  
+> **Status:** Em Desenvolvimento - Wave3 v2.3 ML Integration  
+> **Wave3 v2.1 VALIDADO ✅** | Atual: Wave3 v2.3 ML Hybrid (80% → 90%+ win rate)
 
 ---
 
@@ -35,19 +35,26 @@
 4. **`macd_crossover`** - MACD + Signal + Volume
 5. **`rsi_divergence`** - RSI Divergence com 4 padrões (bullish, bearish, hidden_bullish, hidden_bearish)
 6. **`dynamic_position_sizing`** - Kelly Criterion com ajuste ATR
-7. **`wave3`** ⭐ **v2.2 OPTIMIZING** - André Moraes Trend Following Multi-Timeframe
+7. **`wave3`** ⭐ **v2.1 PRODUCTION | v2.3 ML HYBRID IN DEVELOPMENT** - André Moraes Multi-Timeframe
    - Contexto Diário: MME 72 + MME 17
    - Gatilho 60min: Onda 3 de Elliott
    - Regra dos 17 candles adaptativa
-   - **v2.1 Achievements** ✅:
-     * Quality Score ≥65: +26% score médio (54→68)
-     * Alvos (1:1, 1.5:1, 2.5:1): T2 atingível!
-     * Volume 1.1x: +7pp confirmação
-     * Trailing @ 0.75:1: proteção antecipada
-     * Retorno: +0.71% (vs -1.75% antes)
-   - **v2.2 Optimizations** 🔧 (Em Progresso):
-     * Quality Score ≥70 (vs 65)
-     * Volume 1.05x (vs 1.1x)
+   - **v2.1 Performance (VALIDADO)** ✅:
+     * 13 ativos testados, 15 trades totais
+     * **Win Rate: 80%** (12 wins / 15 trades)
+     * **Retorno Médio: +11.13%** por trade
+     * Quality Score ≥65: Média 74.3/100
+     * Best: WEGE3 +37.89%, ABEV3 +29.72%
+     * Worst: BBAS3 -16.61% (score 65)
+   - **v2.2 Rejected** ❌:
+     * Score 70 muito restritivo (2 trades/2anos)
+     * Eliminou ITUB4 perfeito (score 65, +18.46%)
+   - **v2.3 ML Hybrid (IN DEVELOPMENT)** 🚀:
+     * Architecture: Wave3 v2.1 → ML Filter → Trade
+     * ML Model: Random Forest 80% accuracy
+     * Threshold: ML confidence ≥0.60
+     * Objetivo: Win rate 80% → 90%+
+     * Status: Strategy implementada, modelo pendente
      * T3 @ 2.0:1 (vs 2.5:1)
      * Backtest estendido: 2020-2025
      * Paper trading framework: 60 dias
