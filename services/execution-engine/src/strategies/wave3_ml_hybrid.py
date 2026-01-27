@@ -81,6 +81,7 @@ class Wave3MLHybrid:
         self.ml_threshold = ml_threshold
         self.ml_model_path = ml_model_path
         self.ml_model = None
+        self.ml_feature_names = []  # Lista de features esperadas pelo modelo
         self.feature_engineer = FeatureEngineer()
         
         # Carregar modelo ML se existir
@@ -99,14 +100,28 @@ class Wave3MLHybrid:
         if os.path.exists(self.ml_model_path):
             try:
                 with open(self.ml_model_path, 'rb') as f:
-                    self.ml_model = pickle.load(f)
-                print(f"✅ ML Model loaded: {self.ml_model_path}")
+                    model_data = pickle.load(f)
+                
+                # Modelo pode estar salvo como dict ou diretamente
+                if isinstance(model_data, dict):
+                    self.ml_model = model_data['model']
+                    self.ml_feature_names = model_data.get('feature_names', [])
+                    print(f"✅ ML Model loaded: {self.ml_model_path}")
+                    print(f"   Version: {model_data.get('version', 'unknown')}")
+                    print(f"   Features: {len(self.ml_feature_names)}")
+                else:
+                    self.ml_model = model_data
+                    self.ml_feature_names = []
+                    print(f"✅ ML Model loaded: {self.ml_model_path}")
+                    
             except Exception as e:
                 print(f"⚠️ Erro ao carregar modelo ML: {e}")
                 self.ml_model = None
+                self.ml_feature_names = []
         else:
             print(f"⚠️ ML Model não encontrado: {self.ml_model_path}")
             print("   Estratégia funcionará como Wave3 pura")
+            self.ml_feature_names = []
     
     def _engineer_ml_features(self, df_60min: pd.DataFrame, df_daily: pd.DataFrame) -> Optional[np.ndarray]:
         """
@@ -121,19 +136,34 @@ class Wave3MLHybrid:
         """
         try:
             # Usar dados 60min como base (mais granular)
-            df_features = self.feature_engineer.engineer_features(df_60min.copy())
+            df_features = self.feature_engineer.generate_all_features(df_60min.copy())
             
             if df_features is None or len(df_features) == 0:
                 return None
             
             # Pegar última linha (momento atual)
-            latest = df_features.iloc[-1:]
+            latest = df_features.iloc[-1]
             
-            # Remover colunas não-feature
-            feature_cols = [col for col in latest.columns 
-                          if col not in ['time', 'symbol', 'target', 'target_binary']]
-            
-            features = latest[feature_cols].values
+            # Se temos feature_names do modelo, usar exatamente as mesmas
+            if self.ml_feature_names:
+                # Criar DataFrame com as features esperadas
+                feature_dict = {}
+                for feat in self.ml_feature_names:
+                    if feat in latest.index:
+                        feature_dict[feat] = latest[feat]
+                    else:
+                        # Feature ausente, preencher com 0
+                        feature_dict[feat] = 0.0
+                
+                features = np.array([feature_dict[f] for f in self.ml_feature_names]).reshape(1, -1)
+            else:
+                # Fallback: usar todas features numéricas
+                feature_cols = [col for col in latest.index 
+                              if col not in ['time', 'symbol', 'target', 'target_binary']]
+                
+                latest_numeric = latest[feature_cols]
+                latest_numeric = latest_numeric[latest_numeric.apply(lambda x: isinstance(x, (int, float, np.number)))]
+                features = latest_numeric.values.reshape(1, -1)
             
             # Tratar NaN/Inf
             features = np.nan_to_num(features, nan=0.0, posinf=1e10, neginf=-1e10)
@@ -142,6 +172,8 @@ class Wave3MLHybrid:
             
         except Exception as e:
             print(f"⚠️ Erro ao gerar features ML: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def _predict_ml_confidence(self, features: np.ndarray) -> tuple:

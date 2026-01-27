@@ -18,6 +18,15 @@ Atualizar o progresso no arquivo `INSTRUCOES.md` conforme os passos forem sendo 
 As instalações e dependências do projeto devem ser instaladas no lado do container Docker.
 O sistema operacional para desenvolvimento é linux ubuntu 24.04
 
+## ⚠️ REGRA CRÍTICA: DADOS REAIS APENAS
+**NUNCA usar dados sintéticos ou gerados artificialmente!**
+- ✅ **Fonte validada:** ProfitChart (exportação manual CSV)
+- ✅ **Dados disponíveis:** 268.197 registros (44 símbolos, 24 meses)
+- ✅ **Cobertura:** 15min e 60min (2024-2025)
+- ❌ **Proibido:** APIs gratuitas sem validação, dados simulados
+- 🔍 **Validação obrigatória:** Sempre testar 1 ativo antes de escalar
+- 📊 **Benchmark:** Comparar com resultados documentados em `INSTRUCOES.md`
+
 ## CONTEXTO DE TRABALHO
 - **IDE**: Visual Studio Code (VS Code)
 - **Projeto Atual**: B3 Trading Platform - Sistema Institucional de Trading com MetaBacktester
