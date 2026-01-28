@@ -103,9 +103,8 @@ echo ""
 # 6. Criar snapshot inicial
 echo "6️⃣  Criando snapshot inicial de capital..."
 docker exec b3-postgres psql -U b3trading_user -d b3trading_db -c "
-    INSERT INTO paper_capital_history (snapshot_date, total_capital, realized_pnl)
-    VALUES (CURRENT_DATE, 100000.00, 0.00)
-    ON CONFLICT (snapshot_date) DO NOTHING;
+    INSERT INTO paper_capital_history (capital, initial_capital, realized_pnl)
+    VALUES (100000.00, 100000.00, 0.00);
 " > /dev/null
 
 echo "  ✅ Snapshot criado (R$ 100,000.00)"

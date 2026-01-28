@@ -244,7 +244,7 @@ class Wave3PaperTrader:
                 return
             
             # 2. Gerar sinal Wave3
-            signal = self.wave3.generate_signal(df_daily, df_60min)
+            signal = self.wave3.generate_signal(df_daily, df_60min, symbol)
             
             if signal is None:
                 logger.debug(f"📉 {symbol}: nenhum sinal")
