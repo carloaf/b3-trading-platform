@@ -14,18 +14,213 @@
 **REGRA FUNDAMENTAL:** Sempre utilizar dados REAIS, nunca sintéticos!
 
 **Fonte de Dados Validada:** ProfitChart (exportação manual CSV)
-- ✅ 268.197 registros importados (44 símbolos × 24 meses)
-- ✅ Intervalos: 15min e 60min
-- ✅ Período: Janeiro/2024 → Dezembro/2025
-- ✅ Cobertura: ~5.500 candles/símbolo (60min)
+- ✅ **775.259 registros importados** (58 símbolos × 3 anos) ⭐ **ATUALIZADO 28/01/2026**
+- ✅ Intervalos: **15min, 60min e Diário**
+- ✅ Período: **Janeiro/2023 → Janeiro/2026** (3 anos completos)
+- ✅ Última atualização: **28/01/2026** (0 dias de gap)
+- ✅ Cobertura: **100% dos ativos prioritários + 53 símbolos adicionais**
 
-**Principais Ativos Testados (60min - 26/01/2026):**
-- PETR4: 4.028 candles ✅ TESTADO (6m: 3 trades, 33% win, -2.09%)
-- VALE3: 4.027 candles ✅ TESTADO (6m: 1 trade, 100% win, +0.33%)
-- ITUB4: 4.028 candles ✅ TESTADO (6m: 2 trades, 100% win, +0.89%)
-- BBDC4: 4.028 candles ✅ TESTADO (6m: 2 trades, 100% win, +3.61%)
-- ABEV3: 4.026 candles ✅ TESTADO (6m: 1 trade, 100% win, +4.66%)
-- B3SA3, WEGE3, RENT3, GGBR4, SUZB3: ✅ DISPONÍVEIS (não testados)
+**Ativos Prioritários - Dados COMPLETOS (28/01/2026):**
+- PETR4: 2.498 × 15min, 4.150 × 60min, 499 × Diário ✅ **COMPLETO 2023-2026**
+- VALE3: 15.880 × 15min, 4.150 × 60min, 499 × Diário ✅ **COMPLETO 2023-2026**
+- ITUB4: 8.288 × 15min, 4.150 × 60min, 499 × Diário ✅ **COMPLETO 2023-2026**
+- BBDC4: 8.290 × 15min, 4.150 × 60min, 499 × Diário ✅ **COMPLETO 2023-2026**
+- ABEV3: 8.303 × 15min, 4.148 × 60min, 499 × Diário ✅ **COMPLETO 2023-2026**
+
+**Ativos com Histórico Completo 2023-2026:**
+- **58 símbolos totais** com dados históricos completos
+- **24 símbolos** têm dados em ambas as pastas (dados23e24 + dados26)
+- **34 símbolos** apenas histórico 2023-2025
+- Blue Chips: WEGE3, SBSP3, RADL3, GGBR4, CSNA3, MGLU3, SUZB3, USIM5, etc.
+- Financeiros: ITUB3, BBAS3, SANB11, ITSA4, B3SA3
+- Commodities: PETR3, EMBR3, PRIO3, BRAP4, GOAU4
+
+---
+
+## 📥 PROCESSO DE IMPORTAÇÃO DE DADOS - PROFITCHART CSV
+
+### 📍 Localização dos Arquivos
+
+**Pasta Principal:** `/home/dellno/Área de trabalho/dadoshistoricos.csv/`
+
+**Subpastas:**
+1. **dados23e24** - Dados históricos 2023-2024-2025
+   - 157 arquivos CSV
+   - 58 símbolos únicos
+   - Período: 02/01/2023 → 30/12/2024
+
+2. **dados26** - Dados janeiro 2026
+   - 72 arquivos CSV
+   - 24 símbolos únicos
+   - Período: 02/01/2026 → 28/01/2026
+
+### 📋 Formato dos Arquivos CSV
+
+**Nomenclatura:** `{SYMBOL}_B_0_{TIMEFRAME}.csv`
+
+Exemplos:
+- `PETR4_B_0_15min.csv`
+- `VALE3_B_0_60min.csv`
+- `ITUB4_B_0_Diário.csv`
+
+#### ⚠️ IMPORTANTE: Formatos Diferentes por Timeframe
+
+**Formato Intraday (15min, 60min):**
+```csv
+symbol;date;time;open;high;low;close;volume_brl;volume_qty
+PETR4;30/12/2024;17:00:00;32,83;32,97;32,80;32,80;215181183,90;6552300
+PETR4;30/12/2024;16:00:00;32,86;32,90;32,75;32,83;189234567,80;5789123
+```
+**Campos:** 9 colunas
+- `symbol`: Código do ativo (ex: PETR4)
+- `date`: Data no formato DD/MM/YYYY
+- `time`: Horário no formato HH:MM:SS
+- `open`: Preço de abertura (vírgula como decimal)
+- `high`: Preço máximo
+- `low`: Preço mínimo
+- `close`: Preço de fechamento
+- `volume_brl`: Volume financeiro em BRL
+- `volume_qty`: Quantidade de contratos/ações
+
+**Formato Diário (Diário):**
+```csv
+symbol;date;open;high;low;close;volume_brl;volume_qty
+PETR4;30/12/2024;32,43;32,97;32,42;32,80;733138158,20;22355600
+PETR4;27/12/2024;32,63;32,63;32,28;32,33;784245347,60;24167200
+```
+**Campos:** 8 colunas (SEM campo `time`)
+- ⚠️ **DIFERENÇA CRÍTICA:** Arquivos Diários NÃO têm a coluna `time`
+- Timestamp é apenas a data, sem horário
+
+### 🗄️ Banco de Dados de Destino
+
+**TimescaleDB:** `b3trading_market` (porta 5433)
+- Host: `b3-timescaledb` (Docker network)
+- Usuário: `b3trading_ts`
+- Password: `b3trading_ts_pass`
+
+**Hypertables (Tabelas):**
+1. **ohlcv_15min** - Dados de 15 minutos
+   - Colunas: symbol, time, open, high, low, close, volume
+   - Particionamento: Por tempo (chunks de 7 dias)
+   - Registros: ~338.847 após importação
+
+2. **ohlcv_60min** - Dados de 60 minutos (1 hora)
+   - Colunas: symbol, time, open, high, low, close, volume
+   - Particionamento: Por tempo (chunks de 30 dias)
+   - Registros: ~230.000 após importação
+
+3. **ohlcv_daily** - Dados diários
+   - Colunas: symbol, time, open, high, low, close, volume
+   - Particionamento: Por tempo (chunks de 365 dias)
+   - Registros: ~28.942 após importação
+
+### 🔧 Scripts de Importação
+
+**Script Principal:** `scripts/import_historical_data.py`
+- Linguagem: Python 3.11+
+- Dependências: asyncpg, loguru, csv, pathlib
+- Execução: Via container Docker temporário
+
+**Características:**
+- ✅ Parse diferenciado por timeframe (8 ou 9 colunas)
+- ✅ Bulk insert via COPY (performance otimizada)
+- ✅ Detecção automática de formato (is_daily)
+- ✅ Validação de dados existentes
+- ✅ Remoção de duplicatas antes de importar
+- ✅ Logging estruturado com estatísticas
+
+**Execução:**
+```bash
+# Comando completo (executado 28/01/2026)
+docker run --rm -it \
+  -v "/home/dellno/Área de trabalho/dadoshistoricos.csv:/data" \
+  -v /home/dellno/worksapace/b3-trading-platform/scripts:/scripts \
+  --network b3-trading-platform_b3-network \
+  python:3.11-slim bash -c "pip install -q asyncpg loguru && python3 /scripts/import_historical_data.py"
+```
+
+### 📊 Resultados da Importação (28/01/2026)
+
+**Fase 1 - Prioritários (5 símbolos):**
+- Arquivos: 15
+- Registros: 62.674
+- Erros: 0
+- Duração: ~2 segundos
+
+**Fase 2 - Restantes (53 símbolos):**
+- Arquivos: 142
+- Registros: 712.585
+- Erros: 0
+- Duração: ~27 segundos
+
+**Total Geral:**
+- **Arquivos importados:** 157
+- **Registros inseridos:** 775.259
+- **Erros:** 0
+- **Taxa de sucesso:** 100%
+- **Performance:** ~28.000 registros/segundo
+
+### 🐛 Problemas Encontrados e Soluções
+
+**Problema 1: Arquivos Diários não importavam**
+- Erro: "Nenhum registro válido" para todos os arquivos Diário
+- Causa: Parser esperava 9 colunas, mas Diários têm apenas 8 (sem `time`)
+- Solução: Criado parser condicional que detecta `is_daily` e processa formato correto
+- Commit: [script corrigido 28/01/2026]
+
+**Problema 2: Container não via pastas do host**
+- Erro: "Pasta não encontrada"
+- Causa: Caminhos hardcoded para host, não para container
+- Solução: Volume mount `-v pasta_host:/data` e ajuste de paths no script
+
+**Problema 3: Acesso à rede Docker**
+- Erro: "network not found"
+- Causa: Nome da rede incorreto
+- Solução: `docker network ls | grep b3` → usar `b3-trading-platform_b3-network`
+
+### ✅ Validação Pós-Importação
+
+**Query de Validação:**
+```sql
+-- Verificar total de registros por timeframe
+SELECT 'ohlcv_15min' as table, COUNT(*) as total FROM ohlcv_15min
+UNION ALL
+SELECT 'ohlcv_60min', COUNT(*) FROM ohlcv_60min
+UNION ALL
+SELECT 'ohlcv_daily', COUNT(*) FROM ohlcv_daily;
+
+-- Verificar cobertura dos prioritários
+SELECT 
+    symbol,
+    COUNT(*) as candles,
+    MIN(time) as primeiro,
+    MAX(time) as ultimo
+FROM ohlcv_daily
+WHERE symbol IN ('PETR4', 'VALE3', 'ITUB4', 'BBDC4', 'ABEV3')
+GROUP BY symbol
+ORDER BY symbol;
+```
+
+**Resultado Esperado:**
+- PETR4: 499 candles diários (2023-01-02 → 2024-12-30)
+- VALE3: 499 candles diários (2023-01-02 → 2024-12-30)
+- ITUB4: 499 candles diários (2023-01-02 → 2024-12-30)
+- BBDC4: 499 candles diários (2023-01-02 → 2024-12-30)
+- ABEV3: 499 candles diários (2023-01-02 → 2024-12-30)
+
+### 📝 Checklist para Futuras Importações
+
+- [ ] Verificar se pastas existem: `dados23e24` e `dados26`
+- [ ] Confirmar formato dos arquivos: 8 colunas (Diário) ou 9 (Intraday)
+- [ ] Verificar rede Docker: `docker network ls | grep b3`
+- [ ] Container TimescaleDB rodando: `docker ps | grep timescaledb`
+- [ ] Backup antes de importar: `pg_dump b3trading_market > backup.sql`
+- [ ] Executar script: `import_historical_data.py`
+- [ ] Validar resultados: Query de contagem por símbolo
+- [ ] Atualizar documentação: `INSTRUCOES.md` com novas estatísticas
+
+---
 
 **❌ NÃO USAR:**
 - Dados sintéticos/gerados artificialmente

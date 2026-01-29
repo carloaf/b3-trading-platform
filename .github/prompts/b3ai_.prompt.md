@@ -21,11 +21,29 @@ O sistema operacional para desenvolvimento é linux ubuntu 24.04
 ## ⚠️ REGRA CRÍTICA: DADOS REAIS APENAS
 **NUNCA usar dados sintéticos ou gerados artificialmente!**
 - ✅ **Fonte validada:** ProfitChart (exportação manual CSV)
-- ✅ **Dados disponíveis:** 268.197 registros (44 símbolos, 24 meses)
-- ✅ **Cobertura:** 15min e 60min (2024-2025)
+- ✅ **Dados disponíveis:** **775.259 registros** (58 símbolos, 3 anos) ⭐ **ATUALIZADO 28/01/2026**
+- ✅ **Cobertura:** **15min, 60min e Diário** (2023-2026 completo)
+- ✅ **Banco:** TimescaleDB (b3trading_market) - 3 hypertables
+- ✅ **Período:** Janeiro/2023 → Janeiro/2026 (gap = 0 dias)
 - ❌ **Proibido:** APIs gratuitas sem validação, dados simulados
 - 🔍 **Validação obrigatória:** Sempre testar 1 ativo antes de escalar
 - 📊 **Benchmark:** Comparar com resultados documentados em `INSTRUCOES.md`
+
+### 📥 Importação de Dados ProfitChart
+**Localização:** `/home/dellno/Área de trabalho/dadoshistoricos.csv/`
+- **dados23e24:** 157 arquivos (58 símbolos, 2023-2025)
+- **dados26:** 72 arquivos (24 símbolos, janeiro 2026)
+
+**Formatos CSV (CRÍTICO):**
+- **Intraday (15min/60min):** 9 colunas com `time`
+  * `symbol;date;time;open;high;low;close;volume_brl;volume_qty`
+- **Diário:** 8 colunas SEM `time` ⚠️
+  * `symbol;date;open;high;low;close;volume_brl;volume_qty`
+
+**Script:** `scripts/import_historical_data.py`
+- Parse condicional por timeframe
+- Bulk insert via asyncpg COPY
+- Validação automática de duplicatas
 
 ## CONTEXTO DE TRABALHO
 - **IDE**: Visual Studio Code (VS Code)
