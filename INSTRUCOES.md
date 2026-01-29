@@ -382,15 +382,23 @@ model = xgb.XGBClassifier(
 - ❌ **Datasets < 50k** - CPU é competitiva
 
 #### Backtest Wave3 GPU Results (29/01/2026):
-| Símbolo | Trades | Win% | ML Precision | Sharpe |
-|---------|--------|------|--------------|--------|
-| **PETR4** | 239 | **61.1%** | 60.9% | **4.82** |
-| VALE3 | 105 | 29.5% | 33.6% | -4.10 |
-| ITUB4 | 120 | 36.7% | 35.5% | -2.63 |
-| BBDC4 | 91 | 37.4% | 34.2% | -3.76 |
-| ABEV3 | 57 | 23.1% | 28.0% | -5.08 |
+| Símbolo | Trades | Win% | ML Precision | Sharpe | Return | Max DD |
+|---------|--------|------|--------------|--------|---------|--------|
+| **PETR4** | 239 | **61.1%** ⭐ | 60.9% | **4.82** ⭐⭐⭐ | **+111%** ⭐⭐⭐ | 43.82% |
+| VALE3 | 105 | 29.5% ❌ | 33.6% | -4.10 ❌ | -46.69% ❌ | 598% ❌❌ |
+| ITUB4 | 120 | 36.7% ❌ | 35.5% | -2.63 ❌ | -33.38% ❌ | 162% ❌ |
+| BBDC4 | 91 | 37.4% ❌ | 34.2% | -3.76 ❌ | -31.50% ❌ | 4241% ❌❌❌ |
+| ABEV3 | 52 | 23.1% ❌❌ | 28.0% | -5.08 ❌❌ | -30.52% ❌ | 5495% ❌❌❌ |
 
-**Destaque:** PETR4 com 61.1% win rate, Profit Factor 2.14 e Sharpe 4.82 usando ML+GPU.
+**Análise Crítica:**
+- ✅ **PETR4:** Único validado (61% win, +111% return, Sharpe 4.82)
+- ❌ **Demais ativos:** Win rate 23-37% inaceitável
+- 🔍 **Problema identificado:** Quality score 55 muito baixo + ML não generalizou
+- 📊 **Top Feature PETR4:** Volatility_20 (14.3%) > MACD > RSI
+- ⚠️ **Comparação:** Wave3 baseline 77.8% vs ML 37.5% (-40%)
+- 🎯 **Recomendação:** Usar Wave3 PURA em PETR4, testar quality score 65+
+
+**Detalhes:** `docs/BACKTEST_GPU_RESULTS_29JAN2026.md`
 
 ---
 
