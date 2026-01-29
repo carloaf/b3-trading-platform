@@ -28,6 +28,7 @@ import time
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 import json
+import argparse
 
 # ML imports
 from sklearn.metrics import (
@@ -703,12 +704,28 @@ class Wave3GPUBacktest:
 async def main():
     """Função principal"""
     
+    # Parse argumentos
+    parser = argparse.ArgumentParser(description='Backtest Wave3 com GPU')
+    parser.add_argument('--min-quality', type=int, default=55, 
+                       help='Quality score mínimo (default: 55)')
+    parser.add_argument('--no-gpu', action='store_true',
+                       help='Desabilitar GPU (usar CPU)')
+    parser.add_argument('--no-optuna', action='store_true',
+                       help='Desabilitar Optuna hyperparameter tuning')
+    parser.add_argument('--trials', type=int, default=20,
+                       help='Número de trials Optuna (default: 20)')
+    parser.add_argument('--symbols', nargs='+', 
+                       default=['PETR4', 'VALE3', 'ITUB4', 'BBDC4', 'ABEV3'],
+                       help='Símbolos a testar')
+    args = parser.parse_args()
+    
     print("\n" + "="*80)
     print("BACKTEST WAVE3 COM GPU ACCELERATION")
     print("="*80)
     print(f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     print(f"Estratégia: Wave3 v2.1 + XGBoost GPU + Optuna")
     print(f"Walk-Forward: Train 6 meses → Test 2 meses")
+    print(f"Quality Score: >={args.min_quality}")
     print("="*80)
     
     # Config DB
@@ -732,14 +749,14 @@ async def main():
     # Criar backtest
     backtest = Wave3GPUBacktest(
         db_config=db_config,
-        use_gpu=True,
-        use_optuna=True,
-        n_trials=20,
-        min_quality_score=55  # Wave3 v2.1 padrão
+        use_gpu=not args.no_gpu,
+        use_optuna=not args.no_optuna,
+        n_trials=args.trials,
+        min_quality_score=args.min_quality
     )
     
     # Símbolos
-    symbols = ['PETR4', 'VALE3', 'ITUB4', 'BBDC4', 'ABEV3']
+    symbols = args.symbols
     
     # Períodos Walk-Forward (usando dados completos 2023-2025)
     # Train: Jan/2023 → Jun/2024 (18 meses)
