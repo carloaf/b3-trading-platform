@@ -324,7 +324,77 @@ ORDER BY symbol;
      - Atual: 11 samples para 103 features = ratio 1:10 (deveria ser 1:100)
      - Meta: 100 trades × 103 features = ratio 1:1 (adequado)
 
-### 🏗️ Arquitetura de Serviços
+### � GPU Acceleration (NVIDIA CUDA)
+
+**Status:** ✅ **CONFIGURADO E FUNCIONANDO** (29/01/2026)
+
+#### Hardware:
+- **GPU:** NVIDIA GeForce GTX 960M (4GB VRAM, 640 CUDA cores)
+- **Driver:** 580.126.09 | **CUDA:** 13.0
+- **NVIDIA Container Toolkit:** 1.18.2
+
+#### Configuração Docker:
+```yaml
+# docker-compose.yml - execution-engine
+deploy:
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: 1
+          capabilities: [gpu]
+environment:
+  - NVIDIA_VISIBLE_DEVICES=all
+  - CUDA_VISIBLE_DEVICES=0
+```
+
+#### Scripts GPU-Enabled:
+| Script | Descrição | Performance |
+|--------|-----------|-------------|
+| `scripts/walk_forward_gpu.py` | Walk-Forward ML + Optuna | 20 trials em ~40s |
+| `scripts/backtest_wave3_gpu.py` | Backtest Wave3 + XGBoost GPU | 5 ativos em ~43s |
+| `scripts/test_gpu.py` | Benchmark GPU vs CPU | - |
+
+#### Benchmark Results:
+| Samples | GPU | CPU | Speedup |
+|---------|-----|-----|--------|
+| 10k | 0.95s | 0.74s | 0.78x |
+| 50k | 1.20s | 1.12s | 0.94x |
+| 100k | 1.61s | 1.52s | 0.95x |
+| **200k** | **2.48s** | **3.08s** | **1.24x** |
+
+#### XGBoost GPU Configuration:
+```python
+import xgboost as xgb
+
+model = xgb.XGBClassifier(
+    tree_method='hist',  # Obrigatório para GPU
+    device='cuda',       # Usa NVIDIA GPU
+    n_estimators=100,
+    verbosity=0
+)
+```
+
+#### Quando Usar GPU:
+- ✅ **Datasets > 100k samples** - GPU é 1.24x+ mais rápida
+- ✅ **Optuna hyperparameter tuning** - Múltiplos trials
+- ✅ **Walk-Forward com retreino** - Múltiplos folds
+- ❌ **Datasets < 50k** - CPU é competitiva
+
+#### Backtest Wave3 GPU Results (29/01/2026):
+| Símbolo | Trades | Win% | ML Precision | Sharpe |
+|---------|--------|------|--------------|--------|
+| **PETR4** | 239 | **61.1%** | 60.9% | **4.82** |
+| VALE3 | 105 | 29.5% | 33.6% | -4.10 |
+| ITUB4 | 120 | 36.7% | 35.5% | -2.63 |
+| BBDC4 | 91 | 37.4% | 34.2% | -3.76 |
+| ABEV3 | 57 | 23.1% | 28.0% | -5.08 |
+
+**Destaque:** PETR4 com 61.1% win rate, Profit Factor 2.14 e Sharpe 4.82 usando ML+GPU.
+
+---
+
+### �🏗️ Arquitetura de Serviços
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
