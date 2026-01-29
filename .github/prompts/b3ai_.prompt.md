@@ -45,6 +45,62 @@ O sistema operacional para desenvolvimento é linux ubuntu 24.04
 - Bulk insert via asyncpg COPY
 - Validação automática de duplicatas
 
+## 🎮 GPU ACCELERATION (NVIDIA CUDA)
+
+**Configuração Ativa:** ✅ **29/01/2026**
+
+### Hardware Detectado:
+- **GPU:** NVIDIA GeForce GTX 960M (4GB VRAM, 640 CUDA cores)
+- **Driver:** 580.126.09
+- **CUDA:** 13.0
+- **Container Toolkit:** NVIDIA Container Toolkit 1.18.2
+
+### Quando Usar GPU:
+- ✅ **Datasets > 100k samples:** GPU 1.24x+ mais rápida
+- ✅ **Optuna hyperparameter tuning:** Múltiplos trials paralelos
+- ✅ **Walk-Forward ML:** Retreino em múltiplos folds
+- ❌ **Datasets < 50k:** CPU é competitiva ou mais rápida
+
+### Scripts GPU-Enabled:
+- `scripts/walk_forward_gpu.py` - Walk-Forward com XGBoost GPU + Optuna
+- `scripts/backtest_wave3_gpu.py` - Backtest Wave3 com ML GPU
+- `scripts/test_gpu.py` - Benchmark GPU vs CPU
+
+### Configuração Docker (`docker-compose.yml`):
+```yaml
+execution-engine:
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+  environment:
+    - NVIDIA_VISIBLE_DEVICES=all
+    - CUDA_VISIBLE_DEVICES=0
+```
+
+### XGBoost GPU Parameters:
+```python
+model = xgb.XGBClassifier(
+    tree_method='hist',  # Obrigatório para GPU
+    device='cuda',       # Usa GPU
+    n_estimators=100,
+    verbosity=0
+)
+```
+
+### Benchmark Results (29/01/2026):
+| Samples | GPU Time | CPU Time | Speedup |
+|---------|----------|----------|----------|
+| 10k     | 0.95s    | 0.74s    | 0.78x    |
+| 50k     | 1.20s    | 1.12s    | 0.94x    |
+| 100k    | 1.61s    | 1.52s    | 0.95x    |
+| **200k**| **2.48s**| **3.08s**| **1.24x**|
+
+💡 **Regra:** Usar GPU quando dataset > 100k samples
+
 ## CONTEXTO DE TRABALHO
 - **IDE**: Visual Studio Code (VS Code)
 - **Projeto Atual**: B3 Trading Platform - Sistema Institucional de Trading com MetaBacktester

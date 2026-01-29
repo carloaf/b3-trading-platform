@@ -102,6 +102,14 @@ services:
       context: ./services/execution-engine
       dockerfile: Dockerfile
     container_name: b3-execution-engine
+    # GPU NVIDIA para acelerar ML/XGBoost
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     environment:
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -117,10 +125,13 @@ services:
       - REDIS_PORT=6379
       - ENABLE_PAPER_TRADING=${ENABLE_PAPER_TRADING:-true}
       - INITIAL_CAPITAL=${INITIAL_CAPITAL:-100000}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
     volumes:
       - ./services/execution-engine/src:/app/src
       - ./logs:/app/logs
       - ./data:/app/data
+      - ./scripts:/scripts
     ports:
       - "3008:3008"
     depends_on:
