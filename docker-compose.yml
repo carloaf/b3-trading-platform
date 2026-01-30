@@ -212,6 +212,35 @@ services:
     networks:
       - b3-network
 
+  # ============================================
+  # RTD BRIDGE - ProfitChart Integration
+  # ============================================
+  
+  rtd-bridge:
+    build:
+      context: ./services/rtd-bridge
+      dockerfile: Dockerfile
+    container_name: b3-rtd-bridge
+    environment:
+      - RTD_SERVER_PORT=8765
+      - PROFITCHART_MODE=mock  # mock ou production
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./services/rtd-bridge:/app
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw  # Para Wine/GUI se necessário
+    ports:
+      - "8765:8765"
+    restart: unless-stopped
+    networks:
+      - b3-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; s=socket.socket(); s.connect(('localhost', 8765)); s.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 # ============================================
 # VOLUMES & NETWORKS
 # ============================================
