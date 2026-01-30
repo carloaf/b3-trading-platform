@@ -514,64 +514,117 @@ model = xgb.XGBClassifier(
 - Commodities: PETR3, BRAP4, GOAU4
 - Financeiros: ITUB3, BBAS3, SANB11
 
-**Resultados TOP 5:**
+**Resultados TOP 4 VALIDADOS:**
 
-| Rank | Ativo | Setor | Win% | Return (6m) | Sharpe | Status |
-|------|-------|-------|------|-------------|--------|--------|
+| Rank | Ativo | Setor | Win% | Return | Sharpe | Status |
+|------|-------|-------|------|--------|--------|--------|
 | 1 | **PETR4** | Petróleo | **77.8%** | **+154%*** | **6.23** | ⭐⭐⭐⭐⭐ |
-| 2 | **ITUB3** | Financeiro | **77.8%** | **+7.5%** | **13.89** | ⭐⭐⭐⭐⭐ |
-| 3 | **SUZB3** | Papel | **68.8%** | **+110%** | **4.45** | ⭐⭐⭐⭐⭐ |
-| 4 | **SANB11** | Financeiro | **65.5%** | **+103%** | **4.37** | ⭐⭐⭐⭐ |
-| 5 | **BRAP4** | Mineração | **100%** | **+7.5%** | **41.70** | ⭐⭐⭐⭐⭐ ⚠️ |
+| 2 | **ITUB3** | Financeiro | **77.8%** | **+7.5%** (6m) | **13.89** | ⭐⭐⭐⭐⭐ |
+| 3 | **SUZB3** | Papel | **68.8%** | **+110%** (6m) | **4.45** | ⭐⭐⭐⭐⭐ |
+| 4 | **SANB11** | Financeiro | **65.5%** | **+103%** (6m) | **4.37** | ⭐⭐⭐⭐ |
 
-\* PETR4: Return de 18 meses (escala diferente)  
-⚠️ BRAP4: Apenas 8 trades (necessita validação 18m)
+\* PETR4: Return de 18 meses (referência)
 
 **Análise por Setor:**
 - ✅ **Financeiro (66% sucesso):** ITUB3, SANB11 aprovados
 - ✅ **Petróleo (100% sucesso):** PETR4 referência
 - ✅ **Papel/Celulose (100% sucesso):** SUZB3 aprovado
-- ❌ **Siderurgia (0% sucesso):** GGBR4, GOAU4 reprovados
+- ❌ **Siderurgia/Mineração (0% sucesso):** GGBR4, GOAU4, BRAP4, CSNA3 reprovados
 - ❌ **Industrial (0% sucesso):** WEGE3 reprovado
 - ❌ **Varejo (0% sucesso):** MGLU3 alto risco (DD 254%)
 
-**Taxa de Sucesso Geral:** 36% (4/11 novos ativos aprovados)
+**Taxa de Sucesso Final:** 36% (4/11 novos ativos aprovados)
 
 **Documentação:** [docs/TESTE_6_MULTI_ATIVOS.md](docs/TESTE_6_MULTI_ATIVOS.md)
 
 ---
 
+#### TESTE 6d: BRAP4 Validação 18 Meses (29/01/2026)
+**Objetivo:** Validar se BRAP4 mantém 100% win rate com amostra maior
+
+**Configuração:**
+- Período: 18 meses (Jul/2023 - Dez/2024)
+- Quality Score: 55
+- Trades: 366 (vs 8 em 6 meses)
+
+**Resultados CRÍTICOS:**
+
+| Período | Trades | Win% | Return | Sharpe | Status |
+|---------|--------|------|--------|--------|--------|
+| **6 meses** | 8 | **100%** ⭐⭐⭐⭐⭐ | +7.5% | 41.70 | Anomalia estatística |
+| **18 meses** | 366 | **45.1%** ❌❌❌ | **-109.58%** ❌ | **-1.88** ❌ | **REALIDADE** |
+
+**Conclusão:** ❌ **BRAP4 REJEITADO DEFINITIVAMENTE**
+- Win rate despencou 100% → 45.1% (-54.9pp)
+- Return negativo: -109.58% (perda total)
+- Max Drawdown: 225.40% (insustentável)
+- **Lição:** NUNCA validar com < 20 trades (8 trades = falso positivo estatístico)
+
+**Documentação:** [docs/TESTE_6_VALIDACOES_OPCIONAIS.md](docs/TESTE_6_VALIDACOES_OPCIONAIS.md)
+
+---
+
+#### TESTE 6e: CSNA3 Quality Score 65 (29/01/2026)
+**Objetivo:** Melhorar win rate de CSNA3 com score mais restritivo
+
+**Configuração:**
+- Período: 6 meses (Jul-Dez/2024)
+- Quality Score: 65 (vs 55 no TESTE 6a)
+- Trades: 55 (vs 83 com score 55)
+
+**Resultados:**
+
+| Score | Trades | Win% | Return | Sharpe | Status |
+|-------|--------|------|--------|--------|--------|
+| **55** | 83 | 47.0% ❌ | +61.47% | 2.45 | Marginal |
+| **65** | 55 | **49.1%** ⚠️ | +64.23% | **4.52** | Melhorou, mas insuficiente |
+
+**Conclusão:** ❌ **CSNA3 REJEITADO (mesmo com score 65)**
+- Win rate 49.1% << 60% (ainda 10.9pp abaixo)
+- Score 65 melhorou apenas +2.1pp (insuficiente)
+- Sharpe 4.52 excelente, mas win rate é decisivo
+- Setor siderurgia: 0% aprovação em todos os testes
+
+**Lição:** Quality score sozinho NÃO salva ativos ruins. Trocar de ativo é melhor opção.
+
+**Documentação:** [docs/TESTE_6_VALIDACOES_OPCIONAIS.md](docs/TESTE_6_VALIDACOES_OPCIONAIS.md)
+
+---
+
 ### 🎯 CONCLUSÕES E RECOMENDAÇÕES PARA PRODUÇÃO
 
-#### ✅ Portfolio VALIDADO (5 Ativos):
+#### ✅ Portfolio VALIDADO (4 Ativos - Atualizado 29/01/2026):
 ```python
-# Configuração Production-Ready Multi-Ativos
+# Configuração Production-Ready Multi-Ativos (Revisado após TESTE 6d e 6e)
 config_production = {
     "strategy": "wave3_pure",           # SEM ML (Wave3 pura é superior)
     "quality_score_min": 55,            # Equilíbrio trades × qualidade
-    "symbols": ["PETR4", "ITUB3", "SUZB3", "SANB11", "BRAP4"],
+    "symbols": ["PETR4", "ITUB3", "SUZB3", "SANB11"],  # 4 ativos validados
     "allocation": {
-        "PETR4": 0.40,   # 40% - Ativo principal (77.8% win, Sharpe 6.23)
-        "ITUB3": 0.20,   # 20% - Hedge conservador (Sharpe 13.89, DD 1.3%)
-        "SUZB3": 0.20,   # 20% - Alto retorno (+110% 6m)
-        "SANB11": 0.20,  # 20% - Diversificação (65.5% win)
+        "PETR4": 0.45,   # 45% - Ativo principal (77.8% win, +154% 18m, Sharpe 6.23) ⭐
+        "ITUB3": 0.20,   # 20% - Hedge conservador (77.8% win, Sharpe 13.89, DD 1.3%) ⭐
+        "SUZB3": 0.20,   # 20% - Alto retorno (68.8% win, +110% 6m, Sharpe 4.45) ⭐
+        "SANB11": 0.15,  # 15% - Diversificação (65.5% win, +103% 6m, Sharpe 4.37) ⭐
+        # BRAP4: REMOVIDO - 45.1% win em 18m (falso positivo em 6m)
+        # CSNA3: REJEITADO - 49.1% win com score 65 (abaixo threshold 60%)
     },
     "walk_forward": "18/6",             # 18 meses treino / 6 meses teste
     "retraining_frequency": "6_months", # Re-otimizar a cada 6 meses
     "rebalance": "quarterly",           # Rebalancear a cada 3 meses
-    "max_exposure_per_asset": 0.40,    # Max 40% em um único ativo
+    "max_exposure_per_asset": 0.45,    # Max 45% em um único ativo
     "gpu_enabled": True,                # XGBoost GPU para Optuna
     "optuna_trials": 20                 # Otimização de hyperparameters
 }
 ```
 
-#### 📈 Performance Esperada (Portfolio Diversificado):
-- **Win Rate Médio:** ~72% (média ponderada)
-- **Return Anual:** +70-90%
-- **Sharpe Ratio:** ~6.5
-- **Max Drawdown:** ~40%
-- **Trades/ano:** ~350 (distribuído entre 4-5 ativos)
-- **Diversificação:** 3 setores (Petróleo, Financeiro, Papel)
+#### 📈 Performance Esperada (Portfolio Diversificado - Atualizado):
+- **Win Rate Médio:** ~72% (média ponderada dos 4 ativos)
+- **Return Anual:** +70-90% (ajustado para 4 ativos)
+- **Sharpe Ratio:** ~7.5 (melhorado sem BRAP4)
+- **Max Drawdown:** ~35-40%
+- **Trades/ano:** ~320-350 (distribuído entre 4 ativos)
+- **Diversificação:** 3 setores (Petróleo 45%, Financeiro 35%, Papel 20%)
+- **Setores validados:** Petróleo (100%), Financeiro (66%), Papel (100%)
 
 #### 🏆 Ativos Validados por Perfil:
 
@@ -592,6 +645,9 @@ config_production = {
 3. **Walk-Forward curto inviável:** Wave3 precisa ≥3 meses (validado TESTE 5)
 4. **Setores específicos:** Wave3 funciona melhor em Financeiro, Petróleo e Papel
 5. **Taxa de sucesso:** 36% dos ativos testados (4/11) = seleção rigorosa necessária
+6. **⚠️ NOVO:** Amostra mínima 20+ trades (BRAP4 8 trades = falso positivo) ⭐
+7. **⚠️ NOVO:** Quality score NÃO salva ativos ruins (CSNA3 47%→49% com score 65) ⭐
+8. **⚠️ NOVO:** Validação 18 meses obrigatória (6m pode capturar janela favorável temporária) ⭐
 
 #### 🚀 Roadmap ML Futuro:
 - **Fase 1 (Q1-Q2/2026):** Paper trading Wave3 pura (portfolio 4-5 ativos), coletar 50-100 trades
@@ -603,7 +659,8 @@ config_production = {
 - [docs/TESTES_GPU_COMPLETOS.md](docs/TESTES_GPU_COMPLETOS.md) - Análise consolidada TESTES 1-5
 - [docs/TESTE_4_THRESHOLD_ADAPTATIVO.md](docs/TESTE_4_THRESHOLD_ADAPTATIVO.md) - Thresholds 0.5-0.8
 - [docs/TESTE_5_WALK_FORWARD_6_1.md](docs/TESTE_5_WALK_FORWARD_6_1.md) - Por que 6/1 falhou
-- [docs/TESTE_6_MULTI_ATIVOS.md](docs/TESTE_6_MULTI_ATIVOS.md) - Validação 11 ativos (4 aprovados) **[NOVO]**
+- [docs/TESTE_6_MULTI_ATIVOS.md](docs/TESTE_6_MULTI_ATIVOS.md) - Validação 11 ativos (4 aprovados)
+- [docs/TESTE_6_VALIDACOES_OPCIONAIS.md](docs/TESTE_6_VALIDACOES_OPCIONAIS.md) - BRAP4 18m e CSNA3 score 65 ⭐ **NOVO**
 - [docs/BACKTEST_GPU_RESULTS_29JAN2026.md](docs/BACKTEST_GPU_RESULTS_29JAN2026.md) - Resultados detalhados
 
 ---
