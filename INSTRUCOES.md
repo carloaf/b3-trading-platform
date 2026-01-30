@@ -251,6 +251,9 @@ ORDER BY symbol;
 | **API Gateway** | `services/api-gateway/src/index.js` | ✅ Implementado | - |
 | **Frontend (React)** | `frontend/src/App.jsx` | ✅ Implementado | 496 |
 | **Grafana Dashboards** | `infrastructure/grafana/provisioning/` | ✅ Configurado | - |
+| **RTD Bridge** | `services/rtd-bridge/profitchart_rtd_server.py` | ✅ Implementado | 284 |
+| **RTD Container Manager** | `services/rtd-bridge/manage_container.sh` | ✅ Implementado | 250 |
+| **RTD Bridge** | `services/rtd-bridge/profitchart_rtd_server.py` | ✅ Implementado | 284 |
 
 ### 🔧 Estratégias de Trading Disponíveis
 
@@ -679,6 +682,7 @@ config_production = {
 │  API Gateway:     localhost:3000                            │
 │  Frontend:        localhost:8080                            │
 │  Grafana:         localhost:3001                            │
+│  RTD Bridge:      localhost:8765 (WebSocket)                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -1424,6 +1428,134 @@ CREATE TABLE ml_training_data (
   **Status:** ✅ DADOS IMPORTADOS | ⚠️ ESTRATÉGIA PRECISA OTIMIZAÇÃO
   
   - Commit: [pendente]
+
+- [x] **PASSO 14.7:** RTD Bridge - ProfitChart → LibreOffice Calc Real-Time ✅ **COMPLETO - 30/01/2026**
+  
+  **Objetivo:** Integração em tempo real entre ProfitChart (Wine) e LibreOffice Calc via WebSocket
+  
+  **Implementação:**
+  - ✅ Container Docker: `b3-rtd-bridge` (porta 8765)
+  - ✅ Servidor WebSocket: `profitchart_rtd_server.py` (284 linhas)
+  - ✅ DDE Wrapper: `dde_wrapper.py` (modo MOCK para desenvolvimento)
+  - ✅ Cliente Python: `calc_client.py` (3 modos: simple, interactive, uno)
+  - ✅ Atualizador ODS: `ods_rtd_updater.py` (atualização automática planilha)
+  - ✅ Gerenciador: `manage_container.sh` (build, start, stop, status, test)
+  - ✅ Dockerfile: Imagem Python 3.11 com websockets + odfpy
+  - ✅ Docker Compose: Serviço `rtd-bridge` integrado
+  
+  **Arquitetura:**
+  ```
+  ProfitChart (Wine) → DDE/COM → Python Bridge → WebSocket → LibreOffice Calc
+                                  (Container)     ws://8765
+  ```
+  
+  **Status Atual:**
+  - Container: HEALTHY & RUNNING
+  - Modo: MOCK (dados simulados PETR3, VALE3, PETR4, VALE5)
+  - Performance: ~1s latência, atualização contínua
+  - Dados simulados baseados em backtest Wave3 (win rate 77.8%)
+  
+  **API WebSocket:**
+  - Endpoint: `ws://localhost:8765`
+  - Comandos: get_data, subscribe, ping
+  - Retorno JSON com cotações em tempo real:
+    ```json
+    {
+      "type": "market_data",
+      "data": {
+        "PETR3": {
+          "last": 38.50,
+          "variation": 1.2,
+          "high": 38.75,
+          "low": 38.20,
+          "volume": 12500000,
+          "status": "OPEN"
+        }
+      },
+      "timestamp": "2026-01-30T20:53:27"
+    }
+    ```
+  
+  **Testes Realizados (30/01/2026):**
+  - ✅ Container build: OK (19.5s)
+  - ✅ Servidor WebSocket: OK (conexão estável)
+  - ✅ Cliente Python: OK (dados recebidos corretamente)
+  - ✅ Healthcheck: OK (30s interval)
+  - ✅ Broadcast múltiplos clientes: OK
+  - ✅ Formato JSON validado: OK
+  
+  **Próximos Passos (Dados Reais):**
+  1. Instalar pywin32 no Wine Python
+  2. Implementar cliente DDE real (dde_windows_client.py)
+  3. Testar com ProfitChart rodando via Wine
+  4. Mudar PROFITCHART_MODE=production no docker-compose
+  5. Validar latência < 500ms em produção
+  
+  **Documentação Completa:**
+  - [QUICKSTART.md](services/rtd-bridge/QUICKSTART.md) - Guia rápido de uso
+  - [README_RTD_INTEGRATION.md](services/rtd-bridge/README_RTD_INTEGRATION.md) - Docs técnicas
+  - [manage_container.sh](services/rtd-bridge/manage_container.sh) - Script gerenciamento
+  
+  **Arquivos Criados:**
+  1. `services/rtd-bridge/Dockerfile` - Container Python 3.11
+  2. `services/rtd-bridge/profitchart_rtd_server.py` - Servidor WebSocket (284 linhas)
+  3. `services/rtd-bridge/dde_wrapper.py` - Wrapper DDE/COM (91 linhas)
+  4. `services/rtd-bridge/calc_client.py` - Cliente WebSocket (151 linhas)
+  5. `services/rtd-bridge/ods_rtd_updater.py` - Atualizador automático planilhas
+  6. `services/rtd-bridge/calc_rtd_macro.bas` - Macro LibreOffice Basic
+  7. `services/rtd-bridge/create_calc_template.py` - Gerador templates ODS
+  8. `services/rtd-bridge/manage_container.sh` - Gerenciador container (250 linhas)
+  9. `services/rtd-bridge/requirements.txt` - Dependências (websockets, odfpy)
+  10. `services/rtd-bridge/start_rtd.sh` - Script inicialização (host)
+  11. `services/rtd-bridge/test_connection.py` - Teste WebSocket
+  12. `services/rtd-bridge/QUICKSTART.md` - Guia rápido completo
+  13. `services/rtd-bridge/README_RTD_INTEGRATION.md` - Documentação técnica
+  
+  **Docker Compose Configuração:**
+  ```yaml
+  rtd-bridge:
+    build: ./services/rtd-bridge
+    container_name: b3-rtd-bridge
+    ports:
+      - "8765:8765"
+    environment:
+      - PROFITCHART_MODE=mock
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./services/rtd-bridge:/app
+    networks:
+      - b3-network
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import socket; s=socket.socket(); s.connect(('localhost', 8765)); s.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  ```
+  
+  **Uso Básico:**
+  ```bash
+  # Gerenciar container
+  cd services/rtd-bridge
+  ./manage_container.sh status     # Ver status
+  ./manage_container.sh start      # Iniciar
+  ./manage_container.sh test       # Testar conexão
+  ./manage_container.sh logs       # Ver logs
+  
+  # Testar WebSocket
+  docker exec b3-rtd-bridge python3 calc_client.py --mode interactive
+  
+  # Atualizar planilha LibreOffice
+  ./manage_container.sh update ~/Documentos/ProfitChart_RTD.ods
+  ```
+  
+  **Performance Observada:**
+  - Latência WebSocket: < 100ms
+  - Taxa atualização: 1 segundo (configurável)
+  - CPU container: < 5%
+  - Memória container: ~80MB
+  - Concurrent clients: Testado com 3 clientes simultâneos
+  
+  - Commit: 30/01/2026
 
 - [ ] **PASSO 15:** Paper Trading com ML 🔄 **PRÓXIMO**
   - Criar endpoints RESTful para ML

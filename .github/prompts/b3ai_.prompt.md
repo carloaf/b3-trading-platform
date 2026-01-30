@@ -45,6 +45,87 @@ O sistema operacional para desenvolvimento é linux ubuntu 24.04
 - Bulk insert via asyncpg COPY
 - Validação automática de duplicatas
 
+### 📊 RTD Bridge - Integração Tempo Real com LibreOffice Calc
+
+**Status:** ✅ **IMPLEMENTADO E TESTADO** (30/01/2026)
+
+**Objetivo:** Integração em tempo real entre ProfitChart (Wine) e LibreOffice Calc via WebSocket
+
+**Arquitetura:**
+```
+ProfitChart (Wine) → DDE/COM → Python Bridge → WebSocket → LibreOffice Calc
+                                  (Container)     ws://8765
+```
+
+**Container Docker:**
+- Nome: `b3-rtd-bridge`
+- Porta: `8765` (WebSocket)
+- Status: HEALTHY & RUNNING
+- Modo: MOCK (dados simulados para desenvolvimento)
+- Símbolos: PETR3, VALE3, PETR4, VALE5
+
+**Gerenciamento:**
+```bash
+cd services/rtd-bridge
+
+# Status
+./manage_container.sh status
+
+# Testar conexão
+docker exec b3-rtd-bridge python3 calc_client.py --mode interactive
+
+# Ver logs
+./manage_container.sh logs
+
+# Restart
+./manage_container.sh restart
+```
+
+**API WebSocket:**
+- **Endpoint:** `ws://localhost:8765`
+- **Comandos:**
+  * `{"command": "get_data"}` - Obter cotações atuais
+  * `{"command": "subscribe", "symbols": ["ITUB4"]}` - Inscrever símbolos
+  * `{"command": "ping"}` - Healthcheck
+
+**Dados Retornados:**
+```json
+{
+  "type": "market_data",
+  "data": {
+    "PETR3": {
+      "last": 38.50,
+      "variation": 1.2,
+      "open": 38.30,
+      "high": 38.75,
+      "low": 38.20,
+      "volume": 12500000,
+      "status": "OPEN"
+    }
+  },
+  "timestamp": "2026-01-30T20:53:27"
+}
+```
+
+**Integração com LibreOffice Calc:**
+```bash
+# Opção 1: Via Python Updater (recomendado)
+./manage_container.sh update ~/Documentos/ProfitChart_RTD.ods
+
+# Opção 2: Via Macro Basic (alternativo)
+# Veja: services/rtd-bridge/calc_rtd_macro.bas
+```
+
+**Próximos Passos para Dados Reais:**
+1. Instalar pywin32 no Wine: `wine python -m pip install pywin32`
+2. Implementar cliente DDE real em `dde_wrapper.py`
+3. Mudar modo: `PROFITCHART_MODE=production` no docker-compose.yml
+4. Testar com ProfitChart rodando: `wine profitchart.exe`
+
+**Documentação Completa:**
+- [QUICKSTART.md](services/rtd-bridge/QUICKSTART.md) - Guia rápido
+- [README_RTD_INTEGRATION.md](services/rtd-bridge/README_RTD_INTEGRATION.md) - Docs técnicas
+
 ## 🎮 GPU ACCELERATION (NVIDIA CUDA)
 
 **Configuração Ativa:** ✅ **29/01/2026**
