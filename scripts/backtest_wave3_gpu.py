@@ -102,13 +102,17 @@ class Wave3GPUBacktest:
         use_gpu: bool = True,
         use_optuna: bool = True,
         n_trials: int = 20,
-        min_quality_score: int = 40  # Reduzido para capturar mais sinais
+        min_quality_score: int = 40,  # Reduzido para capturar mais sinais
+        use_smote: bool = True,
+        ml_threshold: float = 0.6
     ):
         self.db_config = db_config
         self.use_gpu = use_gpu
         self.use_optuna = use_optuna and OPTUNA_AVAILABLE
         self.n_trials = n_trials
         self.min_quality_score = min_quality_score
+        self.use_smote = use_smote and SMOTE_AVAILABLE
+        self.ml_threshold = ml_threshold
         
         # Detectar GPU
         self.device = self._detect_gpu()
@@ -121,6 +125,7 @@ class Wave3GPUBacktest:
         print(f"Device: {self.device}")
         print(f"Optuna: {'✅' if self.use_optuna else '❌'} ({n_trials} trials)")
         print(f"Quality Score mínimo: {min_quality_score}")
+        print(f"ML Threshold: {ml_threshold}")
         print(f"{'='*80}")
     
     def _detect_gpu(self) -> str:
@@ -544,13 +549,15 @@ class Wave3GPUBacktest:
         )
         
         # SMOTE para balanceamento
-        if SMOTE_AVAILABLE:
+        if self.use_smote:
             try:
                 smote = SMOTE(random_state=42)
                 X_tr, y_tr = smote.fit_resample(X_tr, y_tr)
                 print(f"   → SMOTE aplicado: {len(X_tr)} amostras")
             except:
                 pass
+        else:
+            print(f"   → SMOTE desabilitado (usando class_weight='balanced')")
         
         # Otimizar hyperparâmetros
         start_time = time.time()
@@ -570,6 +577,14 @@ class Wave3GPUBacktest:
         
         # Treinar modelo final
         print("\n🚀 Treinando modelo XGBoost com GPU...")
+        
+        # Calcular scale_pos_weight se SMOTE desabilitado
+        if not self.use_smote:
+            n_neg = sum(y_train == 0)
+            n_pos = sum(y_train == 1)
+            scale_weight = n_neg / n_pos if n_pos > 0 else 1.0
+            best_params['scale_pos_weight'] = scale_weight
+        
         model = xgb.XGBClassifier(
             **best_params,
             tree_method='hist',
@@ -624,7 +639,7 @@ class Wave3GPUBacktest:
         print(f"   F1:        {ml_f1*100:.1f}%")
         
         # Filtrar sinais pelo ML (alta confiança)
-        threshold = 0.6  # Só trades com >60% probabilidade
+        threshold = self.ml_threshold  # Configurável via argumento
         ml_selected = y_prob >= threshold
         
         signals_filtered = signals_test[ml_selected].copy()
@@ -712,11 +727,15 @@ async def main():
                        help='Desabilitar GPU (usar CPU)')
     parser.add_argument('--no-optuna', action='store_true',
                        help='Desabilitar Optuna hyperparameter tuning')
+    parser.add_argument('--no-smote', action='store_true',
+                       help='Desabilitar SMOTE balanceamento')
     parser.add_argument('--trials', type=int, default=20,
                        help='Número de trials Optuna (default: 20)')
     parser.add_argument('--symbols', nargs='+', 
                        default=['PETR4', 'VALE3', 'ITUB4', 'BBDC4', 'ABEV3'],
                        help='Símbolos a testar')
+    parser.add_argument('--threshold', type=float, default=0.6,
+                       help='Threshold ML de confiança (default: 0.6)')
     args = parser.parse_args()
     
     print("\n" + "="*80)
@@ -726,6 +745,7 @@ async def main():
     print(f"Estratégia: Wave3 v2.1 + XGBoost GPU + Optuna")
     print(f"Walk-Forward: Train 6 meses → Test 2 meses")
     print(f"Quality Score: >={args.min_quality}")
+    print(f"ML Threshold: {args.threshold}")
     print("="*80)
     
     # Config DB
@@ -752,7 +772,9 @@ async def main():
         use_gpu=not args.no_gpu,
         use_optuna=not args.no_optuna,
         n_trials=args.trials,
-        min_quality_score=args.min_quality
+        min_quality_score=args.min_quality,
+        use_smote=not args.no_smote,
+        ml_threshold=args.threshold
     )
     
     # Símbolos
