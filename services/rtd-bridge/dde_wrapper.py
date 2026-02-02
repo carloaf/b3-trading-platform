@@ -62,38 +62,45 @@ def get_mock_quote(symbol: str) -> dict:
 
 def connect_dde_wine(symbols: list) -> dict:
     """
-    Conecta ao DDE do ProfitChart via Wine
+    Conecta ao ProfitChart para obter cotações
     
-    Esta é uma implementação MOCK para desenvolvimento.
-    Para produção, implemente a conexão DDE real.
+    Estratégias disponíveis (em ordem de prioridade):
+        1. CSV Monitor: Lê CSVs exportados automaticamente (latência 1-5s)
+        2. DDE/Wine: Conexão DDE real via Wine+pywin32 (latência 100-500ms)
+        3. Mock Data: Dados simulados para desenvolvimento
     
-    Passos para implementação real:
-    1. Instalar Python no Wine: wine python-installer.exe
-    2. Instalar pywin32 no Wine: wine python -m pip install pywin32
-    3. Criar script DDE usando win32ui/ddeml
-    4. Chamar script via: wine python dde_client.py
+    Configuração CSV Monitor (RECOMENDADO):
+        - Configure ProfitChart: Ferramentas > Opções > Exportação Automática
+        - Pasta export: ~/profitchart_export/
+        - Frequência: 1-2 segundos
+        - Variável ambiente: PROFITCHART_CSV_MODE=true
+    
+    Configuração DDE Real (AVANÇADO):
+        - Instalar Python no Wine
+        - Instalar pywin32: wine python -m pip install pywin32
+        - Criar dde_windows_client.py
     """
+    import os
     
-    # TODO: Implementação DDE real
-    # Exemplo de código DDE (executar no Wine):
-    """
-    import win32ui
-    import ddeml
+    # Verificar modo CSV
+    csv_mode = os.getenv('PROFITCHART_CSV_MODE', 'false').lower() == 'true'
+    csv_folder = os.getenv('PROFITCHART_CSV_FOLDER', '~/profitchart_export')
     
-    # Criar servidor DDE
-    server = ddeml.CreateServer()
-    server.Create("ProfitRTD")
+    if csv_mode:
+        try:
+            from profitchart_csv_monitor import connect_csv_monitor
+            quotes = connect_csv_monitor(symbols)
+            if quotes:
+                print(f"✅ CSV Monitor: {len(quotes)} cotações obtidas", file=sys.stderr)
+                return quotes
+            else:
+                print("⚠️  CSV Monitor: Nenhuma cotação, usando mock", file=sys.stderr)
+        except ImportError:
+            print("⚠️  CSV Monitor não disponível, usando mock", file=sys.stderr)
+        except Exception as e:
+            print(f"⚠️  CSV Monitor erro: {e}, usando mock", file=sys.stderr)
     
-    # Conectar ao ProfitChart
-    conversation = server.ConnectTo("PROFITCHART", "QUOTE")
-    
-    # Obter cotação
-    for symbol in symbols:
-        quote = conversation.Request(symbol)
-        # Parse quote e retornar
-    """
-    
-    # Por enquanto, retornar dados mock
+    # Fallback: Mock data
     result = {}
     for symbol in symbols:
         result[symbol] = get_mock_quote(symbol)

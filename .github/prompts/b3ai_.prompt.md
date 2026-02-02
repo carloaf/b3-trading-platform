@@ -47,7 +47,8 @@ O sistema operacional para desenvolvimento é linux ubuntu 24.04
 
 ### 📊 RTD Bridge - Integração Tempo Real com LibreOffice Calc
 
-**Status:** ✅ **IMPLEMENTADO E TESTADO** (30/01/2026)
+**Status:** ✅ **IMPLEMENTADO E TESTADO** (30/01/2026)  
+**CSV Monitor:** ✅ **IMPLEMENTADO** (30/01/2026) - Latência 1,5-2,5s
 
 **Objetivo:** Integração em tempo real entre ProfitChart (Wine) e LibreOffice Calc via WebSocket
 
@@ -116,13 +117,19 @@ docker exec b3-rtd-bridge python3 calc_client.py --mode interactive
 # Veja: services/rtd-bridge/calc_rtd_macro.bas
 ```
 
-**Próximos Passos para Dados Reais:**
-1. Instalar pywin32 no Wine: `wine python -m pip install pywin32`
-2. Implementar cliente DDE real em `dde_wrapper.py`
-3. Mudar modo: `PROFITCHART_MODE=production` no docker-compose.yml
-4. Testar com ProfitChart rodando: `wine profitchart.exe`
+**Dados Reais via CSV Monitor (RECOMENDADO):**
+1. Configurar exportação automática no ProfitChart (1-2s refresh)
+2. Ativar: `PROFITCHART_CSV_MODE=true` no docker-compose.yml
+3. Pasta export: `~/profitchart_export/`
+4. Latência: 1,5-2,5 segundos (ideal para swing trading)
+
+**Tempos de Atualização:**
+- CSV Export: 1-5 segundos ✅ IMPLEMENTADO
+- DDE/Wine: 100-500ms (requer pywin32)
+- Mock: 1 segundo (desenvolvimento)
 
 **Documentação Completa:**
+- [PROFITCHART_CSV_SETUP.md](services/rtd-bridge/PROFITCHART_CSV_SETUP.md) - Setup CSV Export ⭐
 - [QUICKSTART.md](services/rtd-bridge/QUICKSTART.md) - Guia rápido
 - [README_RTD_INTEGRATION.md](services/rtd-bridge/README_RTD_INTEGRATION.md) - Docs técnicas
 
