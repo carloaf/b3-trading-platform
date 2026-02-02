@@ -223,11 +223,14 @@ services:
     container_name: b3-rtd-bridge
     environment:
       - RTD_SERVER_PORT=8765
-      - PROFITCHART_MODE=mock  # mock ou production
+      - PROFITCHART_MODE=mock  # mock, csv ou production
+      - PROFITCHART_CSV_MODE=false  # true para CSV Monitor
+      - PROFITCHART_CSV_FOLDER=/profitchart_export  # Pasta de export do ProfitChart
       - LOG_LEVEL=INFO
     volumes:
       - ./services/rtd-bridge:/app
       - /tmp/.X11-unix:/tmp/.X11-unix:rw  # Para Wine/GUI se necessário
+      - ~/profitchart_export:/profitchart_export:ro  # CSV exports (read-only)
     ports:
       - "8765:8765"
     restart: unless-stopped
